@@ -131,7 +131,3 @@ bot.launch()
     console.error('Failed to launch bot:', error);
     process.exit(1);
   });
-
-// Enable graceful stop
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
