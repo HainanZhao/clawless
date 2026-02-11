@@ -24,6 +24,9 @@ const geminiAgent = new ACP({
 // Configure message update interval (in ms) to avoid Telegram rate limits
 const UPDATE_INTERVAL_MS = parseInt(process.env.UPDATE_INTERVAL_MS || '1500', 10);
 
+// Maximum response length to prevent memory issues (Telegram has 4096 char limit anyway)
+const MAX_RESPONSE_LENGTH = parseInt(process.env.MAX_RESPONSE_LENGTH || '4000', 10);
+
 // Track last update time per message to implement buffering
 const lastUpdateTime = new Map();
 
@@ -48,6 +51,12 @@ bot.on('text', async (ctx) => {
     for await (const delta of textStream) {
       fullResponse += delta;
       
+      // Enforce maximum response length to prevent memory issues
+      if (fullResponse.length > MAX_RESPONSE_LENGTH) {
+        fullResponse = fullResponse.substring(0, MAX_RESPONSE_LENGTH) + '\n\n[Response truncated due to length]';
+        break;
+      }
+      
       const now = Date.now();
       const timeSinceLastUpdate = now - (lastUpdateTime.get(messageId) || 0);
       
@@ -63,8 +72,12 @@ bot.on('text', async (ctx) => {
           );
           lastUpdateTime.set(messageId, now);
         } catch (editError) {
-          // Ignore "message is not modified" errors
-          if (!editError.description?.includes('message is not modified')) {
+          // Check for specific Telegram error codes
+          // 400 with "message is not modified" is expected and can be ignored
+          const isNotModified = editError.response?.error_code === 400 && 
+                               editError.description?.includes('message is not modified');
+          
+          if (!isNotModified) {
             console.error('Error updating message:', editError.message);
           }
         }

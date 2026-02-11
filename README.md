@@ -122,6 +122,7 @@ pm2 save
 |----------|----------|---------|-------------|
 | `TELEGRAM_TOKEN` | Yes | - | Your Telegram bot token from BotFather |
 | `UPDATE_INTERVAL_MS` | No | 1500 | Interval (in milliseconds) for updating Telegram messages during streaming |
+| `MAX_RESPONSE_LENGTH` | No | 4000 | Maximum response length in characters to prevent memory issues |
 
 ### Update Interval
 
@@ -130,6 +131,14 @@ The `UPDATE_INTERVAL_MS` controls how often the bot updates messages while strea
 - **Lower values (500-1000ms)**: More real-time feel, but higher API usage
 - **Higher values (1500-2000ms)**: Better for rate limits, slight delay in updates
 - **Recommended**: 1500ms balances responsiveness and API limits
+
+### Response Length Limit
+
+The `MAX_RESPONSE_LENGTH` prevents memory issues with very long responses:
+
+- **Default**: 4000 characters (Telegram's limit is 4096 per message)
+- Responses exceeding this limit are truncated with a notification
+- Protects against unbounded memory growth
 
 ## How It Works
 
