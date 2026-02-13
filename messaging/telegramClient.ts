@@ -1,7 +1,12 @@
 import { Telegraf } from 'telegraf';
 
 class TelegramMessageContext {
-  constructor(ctx, typingIntervalMs) {
+  ctx: any;
+  typingIntervalMs: number;
+  text: string;
+  chatId: string | number | undefined;
+
+  constructor(ctx: any, typingIntervalMs: number) {
     this.ctx = ctx;
     this.typingIntervalMs = typingIntervalMs;
     this.text = ctx.message?.text || '';
@@ -18,18 +23,21 @@ class TelegramMessageContext {
     return () => clearInterval(intervalId);
   }
 
-  async sendText(text) {
+  async sendText(text: string) {
     await this.ctx.reply(text);
   }
 }
 
 export class TelegramMessagingClient {
-  constructor({ token, typingIntervalMs }) {
+  bot: Telegraf;
+  typingIntervalMs: number;
+
+  constructor({ token, typingIntervalMs }: { token: string; typingIntervalMs: number }) {
     this.bot = new Telegraf(token);
     this.typingIntervalMs = typingIntervalMs;
   }
 
-  onTextMessage(handler) {
+  onTextMessage(handler: (messageContext: TelegramMessageContext) => Promise<void> | void) {
     this.bot.on('text', (ctx) => {
       const messageContext = new TelegramMessageContext(ctx, this.typingIntervalMs);
       Promise.resolve(handler(messageContext)).catch((error) => {
@@ -38,12 +46,12 @@ export class TelegramMessagingClient {
     });
   }
 
-  onError(handler) {
+  onError(handler: (error: Error, messageContext: TelegramMessageContext | null) => void) {
     this.bot.catch((error, ctx) => {
       const messageContext = ctx?.chat
         ? new TelegramMessageContext(ctx, this.typingIntervalMs)
         : null;
-      handler(error, messageContext);
+      handler(error as Error, messageContext);
     });
   }
 
@@ -51,11 +59,11 @@ export class TelegramMessagingClient {
     await this.bot.launch();
   }
 
-  async sendTextToChat(chatId, text) {
+  async sendTextToChat(chatId: string | number, text: string) {
     await this.bot.telegram.sendMessage(chatId, text);
   }
 
-  stop(reason) {
+  stop(reason: string) {
     this.bot.stop(reason);
   }
 }

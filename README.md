@@ -184,7 +184,7 @@ pm2 save
 | `TYPING_INTERVAL_MS` | No | 4000 | Interval (in milliseconds) for refreshing Telegram typing status |
 | `GEMINI_TIMEOUT_MS` | No | 900000 | Overall timeout for a single Gemini CLI run |
 | `GEMINI_NO_OUTPUT_TIMEOUT_MS` | No | 60000 | Idle timeout; aborts if Gemini emits no output for this duration |
-| `GEMINI_APPROVAL_MODE` | No | - | Gemini approval mode (for example: `default`, `auto_edit`, `yolo`, `plan`) |
+| `GEMINI_APPROVAL_MODE` | No | yolo | Gemini approval mode (for example: `default`, `auto_edit`, `yolo`, `plan`) |
 | `GEMINI_MODEL` | No | - | Gemini model override passed to CLI |
 | `ACP_PERMISSION_STRATEGY` | No | allow_once | Auto-select ACP permission option kind (`allow_once`, `reject_once`, or `cancelled`) |
 | `MAX_RESPONSE_LENGTH` | No | 4000 | Maximum response length in characters to prevent memory issues |
@@ -308,9 +308,9 @@ If you see "429 Too Many Requests" errors:
 
 ```
 RemoteAgent/
-├── index.js              # Main bridge application
+├── index.ts              # Main bridge application
 ├── messaging/
-│   └── telegramClient.js # Telegram adapter implementing neutral message context
+│   └── telegramClient.ts # Telegram adapter implementing neutral message context
 ├── package.json          # Node.js dependencies
 ├── ecosystem.config.json # PM2 configuration
 ├── .env.example          # Environment variables template
@@ -321,8 +321,8 @@ RemoteAgent/
 ### Adding Features
 
 The codebase is designed to be simple and extensible:
-- Core queue + ACP logic is in `index.js`
-- Messaging-platform specifics live in `messaging/telegramClient.js`
+- Core queue + ACP logic is in `index.ts`
+- Messaging-platform specifics live in `messaging/telegramClient.ts`
 - New bot platforms can implement the same message context shape (`text`, `startTyping()`, `sendText()`)
 - Error handling is centralized
 - Rate limiting logic is configurable

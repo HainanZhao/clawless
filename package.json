@@ -2,15 +2,19 @@
   "name": "gemini-bridge",
   "version": "0.0.1",
   "description": "A bridge connecting messaging bot to Agent Gemini CLI using Agent Communication Protocol (ACP)",
-  "main": "index.js",
+  "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "gemini-bridge": "./bin/cli.js"
+    "gemini-bridge": "./dist/bin/cli.js"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --watch index.js",
-    "cli": "node ./bin/cli.js"
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch ./bin/cli.ts",
+    "start": "tsx ./bin/cli.ts",
+    "cli": "tsx ./bin/cli.ts",
+    "callback:health": "./scripts/callback-health.sh",
+    "callback:test": "./scripts/callback-post.sh",
+    "callback:test:chat": "./scripts/callback-post-chat.sh"
   },
   "keywords": [
     "telegram",
@@ -22,9 +26,14 @@
   "author": "Hainan Zhao",
   "license": "MIT",
   "dependencies": {
-    "telegraf": "^4.16.3",
     "@agentclientprotocol/sdk": "^0.14.1",
-    "dotenv": "^16.4.5"
+    "dotenv": "^16.4.5",
+    "telegraf": "^4.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.2"
   },
   "engines": {
     "node": ">=18.0.0"

@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-const ENV_KEY_MAP = {
+const ENV_KEY_MAP: Record<string, string> = {
 	telegramToken: 'TELEGRAM_TOKEN',
 	typingIntervalMs: 'TYPING_INTERVAL_MS',
 	geminiCommand: 'GEMINI_COMMAND',
@@ -32,7 +32,7 @@ const DEFAULT_CONFIG_TEMPLATE = {
 	telegramToken: 'your_telegram_bot_token_here',
 	typingIntervalMs: 4000,
 	geminiCommand: 'gemini',
-	geminiApprovalMode: 'default',
+	geminiApprovalMode: 'yolo',
 	geminiModel: '',
 	acpPermissionStrategy: 'allow_once',
 	geminiTimeoutMs: 900000,
@@ -64,7 +64,7 @@ Config precedence:
 `);
 }
 
-function parseArgs(argv) {
+function parseArgs(argv: string[]) {
 	const result = {
 		configPath: process.env.GEMINI_BRIDGE_CONFIG || process.env.AGENT_BRIDGE_CONFIG || DEFAULT_CONFIG_PATH,
 		help: false,
@@ -94,7 +94,7 @@ function parseArgs(argv) {
 	return result;
 }
 
-function toEnvValue(value) {
+function toEnvValue(value: unknown) {
 	if (value === null || value === undefined) {
 		return undefined;
 	}
@@ -104,7 +104,7 @@ function toEnvValue(value) {
 	return String(value);
 }
 
-function resolveEnvKey(configKey) {
+function resolveEnvKey(configKey: string) {
 	if (configKey in ENV_KEY_MAP) {
 		return ENV_KEY_MAP[configKey];
 	}
@@ -117,7 +117,7 @@ function resolveEnvKey(configKey) {
 	return null;
 }
 
-function applyConfigToEnv(configData) {
+function applyConfigToEnv(configData: Record<string, unknown>) {
 	if (!configData || typeof configData !== 'object' || Array.isArray(configData)) {
 		throw new Error('Config file must contain a JSON object at the top level');
 	}
@@ -139,7 +139,7 @@ function applyConfigToEnv(configData) {
 	}
 }
 
-function resolveConfigPath(configPath) {
+function resolveConfigPath(configPath: string) {
 	if (!configPath || configPath === '~') {
 		return os.homedir();
 	}
@@ -151,7 +151,7 @@ function resolveConfigPath(configPath) {
 	return path.resolve(process.cwd(), configPath);
 }
 
-function ensureConfigFile(configPath) {
+function ensureConfigFile(configPath: string) {
 	const absolutePath = resolveConfigPath(configPath);
 	if (fs.existsSync(absolutePath)) {
 		return { created: false, path: absolutePath };
@@ -162,7 +162,7 @@ function ensureConfigFile(configPath) {
 	return { created: true, path: absolutePath };
 }
 
-function ensureMemoryFile(memoryFilePath) {
+function ensureMemoryFile(memoryFilePath: string) {
 	const absolutePath = resolveConfigPath(memoryFilePath);
 	if (!fs.existsSync(absolutePath)) {
 		fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
@@ -196,13 +196,13 @@ function ensureMemoryFromEnv() {
 	return ensureMemoryFile(process.env.MEMORY_FILE_PATH || DEFAULT_MEMORY_FILE_PATH);
 }
 
-function logMemoryFileCreation(memoryState) {
+function logMemoryFileCreation(memoryState: { created: boolean; path: string }) {
 	if (memoryState.created) {
 		console.log(`[gemini-bridge] Created memory file: ${memoryState.path}`);
 	}
 }
 
-function loadConfigFile(configPath) {
+function loadConfigFile(configPath: string) {
 	const absolutePath = resolveConfigPath(configPath);
 	if (!fs.existsSync(absolutePath)) {
 		return null;
@@ -241,7 +241,7 @@ try {
 	logMemoryFileCreation(postConfigMemoryState);
 
 	await import('../index.js');
-} catch (error) {
+} catch (error: any) {
 	console.error(`[gemini-bridge] ${error.message}`);
 	process.exit(1);
 }

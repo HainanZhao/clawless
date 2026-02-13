@@ -25,7 +25,7 @@ if (process.env.TELEGRAM_TOKEN.includes('your_telegram_bot_token_here') || !proc
 const GEMINI_COMMAND = process.env.GEMINI_COMMAND || 'gemini';
 const GEMINI_TIMEOUT_MS = parseInt(process.env.GEMINI_TIMEOUT_MS || '900000', 10);
 const GEMINI_NO_OUTPUT_TIMEOUT_MS = parseInt(process.env.GEMINI_NO_OUTPUT_TIMEOUT_MS || '60000', 10);
-const GEMINI_APPROVAL_MODE = process.env.GEMINI_APPROVAL_MODE || '';
+const GEMINI_APPROVAL_MODE = process.env.GEMINI_APPROVAL_MODE || 'yolo';
 const GEMINI_MODEL = process.env.GEMINI_MODEL || '';
 const ACP_PERMISSION_STRATEGY = process.env.ACP_PERMISSION_STRATEGY || 'allow_once';
 const HEARTBEAT_INTERVAL_MS = parseInt(process.env.HEARTBEAT_INTERVAL_MS || '60000', 10);
@@ -50,16 +50,16 @@ const messagingClient = new TelegramMessagingClient({
   typingIntervalMs: TYPING_INTERVAL_MS,
 });
 
-let geminiProcess = null;
-let acpConnection = null;
-let acpSessionId = null;
-let acpInitPromise = null;
-let activePromptCollector = null;
+let geminiProcess: any = null;
+let acpConnection: any = null;
+let acpSessionId: any = null;
+let acpInitPromise: Promise<void> | null = null;
+let activePromptCollector: any = null;
 let messageSequence = 0;
-let acpPrewarmRetryTimer = null;
+let acpPrewarmRetryTimer: NodeJS.Timeout | null = null;
 let geminiStderrTail = '';
-let callbackServer = null;
-let lastIncomingChatId = null;
+let callbackServer: http.Server | null = null;
+let lastIncomingChatId: string | null = null;
 const GEMINI_STDERR_TAIL_MAX = 4000;
 
 function ensureBridgeHomeDirectory() {
@@ -74,7 +74,7 @@ function loadPersistedCallbackChatId() {
 
     const parsed = JSON.parse(fs.readFileSync(CALLBACK_CHAT_STATE_FILE_PATH, 'utf8'));
     return resolveChatId(parsed?.chatId);
-  } catch (error) {
+  } catch (error: any) {
     logInfo('Failed to load callback chat state', {
       callbackChatStateFilePath: CALLBACK_CHAT_STATE_FILE_PATH,
       error: error?.message || String(error),
@@ -83,7 +83,7 @@ function loadPersistedCallbackChatId() {
   }
 }
 
-function persistCallbackChatId(chatId) {
+function persistCallbackChatId(chatId: string) {
   try {
     ensureBridgeHomeDirectory();
     fs.writeFileSync(
@@ -91,7 +91,7 @@ function persistCallbackChatId(chatId) {
       `${JSON.stringify({ chatId: String(chatId), updatedAt: new Date().toISOString() }, null, 2)}\n`,
       'utf8',
     );
-  } catch (error) {
+  } catch (error: any) {
     logInfo('Failed to persist callback chat state', {
       callbackChatStateFilePath: CALLBACK_CHAT_STATE_FILE_PATH,
       error: error?.message || String(error),
@@ -99,7 +99,7 @@ function persistCallbackChatId(chatId) {
   }
 }
 
-function logInfo(message, details) {
+function logInfo(message: string, details?: unknown) {
   const timestamp = new Date().toISOString();
   if (details !== undefined) {
     console.log(`[${timestamp}] ${message}`, details);
@@ -108,20 +108,20 @@ function logInfo(message, details) {
   console.log(`[${timestamp}] ${message}`);
 }
 
-function appendGeminiStderrTail(text) {
+function appendGeminiStderrTail(text: string) {
   geminiStderrTail = `${geminiStderrTail}${text}`;
   if (geminiStderrTail.length > GEMINI_STDERR_TAIL_MAX) {
     geminiStderrTail = geminiStderrTail.slice(-GEMINI_STDERR_TAIL_MAX);
   }
 }
 
-function sendJson(res, statusCode, payload) {
+function sendJson(res: http.ServerResponse, statusCode: number, payload: unknown) {
   res.statusCode = statusCode;
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.end(JSON.stringify(payload));
 }
 
-function isCallbackAuthorized(req) {
+function isCallbackAuthorized(req: http.IncomingMessage) {
   if (!CALLBACK_AUTH_TOKEN) {
     return true;
   }
@@ -135,12 +135,12 @@ function isCallbackAuthorized(req) {
   return headerToken === CALLBACK_AUTH_TOKEN || bearerToken === CALLBACK_AUTH_TOKEN;
 }
 
-function readRequestBody(req, maxBytes) {
-  return new Promise((resolve, reject) => {
-    const chunks = [];
+function readRequestBody(req: http.IncomingMessage, maxBytes: number) {
+  return new Promise<string>((resolve, reject) => {
+    const chunks: Buffer[] = [];
     let total = 0;
 
-    req.on('data', (chunk) => {
+    req.on('data', (chunk: Buffer) => {
       total += chunk.length;
       if (total > maxBytes) {
         reject(new Error(`Payload too large (>${maxBytes} bytes)`));
@@ -154,13 +154,13 @@ function readRequestBody(req, maxBytes) {
       resolve(Buffer.concat(chunks).toString('utf8'));
     });
 
-    req.on('error', (error) => {
+    req.on('error', (error: Error) => {
       reject(error);
     });
   });
 }
 
-function resolveChatId(value) {
+function resolveChatId(value: unknown) {
   if (value === undefined || value === null) {
     return null;
   }
@@ -177,7 +177,7 @@ function resolveChatId(value) {
   return normalized;
 }
 
-function normalizeOutgoingText(text) {
+function normalizeOutgoingText(text: unknown) {
   const normalized = String(text || '').trim();
   if (!normalized) {
     return '';
@@ -188,7 +188,7 @@ function normalizeOutgoingText(text) {
   return `${normalized.slice(0, MAX_RESPONSE_LENGTH)}\n\n[Response truncated due to length]`;
 }
 
-async function handleCallbackRequest(req, res) {
+async function handleCallbackRequest(req: http.IncomingMessage, res: http.ServerResponse) {
   const hostHeader = req.headers.host || `${CALLBACK_HOST}:${CALLBACK_PORT}`;
   const requestUrl = new URL(req.url || '/', `http://${hostHeader}`);
 
@@ -212,11 +212,11 @@ async function handleCallbackRequest(req, res) {
     return;
   }
 
-  let body = null;
+  let body: any = null;
   try {
     const bodyText = await readRequestBody(req, CALLBACK_MAX_BODY_BYTES);
     body = bodyText ? JSON.parse(bodyText) : {};
-  } catch (error) {
+  } catch (error: any) {
     sendJson(res, 400, { ok: false, error: error?.message || 'Invalid JSON body' });
     return;
   }
@@ -245,16 +245,34 @@ async function handleCallbackRequest(req, res) {
     await messagingClient.sendTextToChat(targetChatId, callbackText);
     logInfo('Callback message sent', { targetChatId });
     sendJson(res, 200, { ok: true, chatId: targetChatId });
-  } catch (error) {
+  } catch (error: any) {
     sendJson(res, 500, { ok: false, error: error?.message || 'Failed to send Telegram message' });
   }
 }
 
 function startCallbackServer() {
+  if (callbackServer) {
+    return;
+  }
+
   callbackServer = http.createServer((req, res) => {
-    handleCallbackRequest(req, res).catch((error) => {
+    handleCallbackRequest(req, res).catch((error: any) => {
       sendJson(res, 500, { ok: false, error: error?.message || 'Internal callback server error' });
     });
+  });
+
+  callbackServer.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      logInfo('Callback server port already in use; skipping local callback listener for this process', {
+        host: CALLBACK_HOST,
+        port: CALLBACK_PORT,
+      });
+      callbackServer?.close();
+      callbackServer = null;
+      return;
+    }
+
+    console.error('Callback server error:', error);
   });
 
   callbackServer.listen(CALLBACK_PORT, CALLBACK_HOST, () => {
@@ -264,10 +282,6 @@ function startCallbackServer() {
       authEnabled: Boolean(CALLBACK_AUTH_TOKEN),
       endpoint: '/callback/telegram',
     });
-  });
-
-  callbackServer.on('error', (error) => {
-    console.error('Callback server error:', error);
   });
 }
 
@@ -326,7 +340,7 @@ function readMemoryContext() {
       return content;
     }
     return content.slice(-MEMORY_MAX_CHARS);
-  } catch (error) {
+  } catch (error: any) {
     logInfo('Unable to read memory file; continuing without memory context', {
       memoryFilePath: MEMORY_FILE_PATH,
       error: error?.message || String(error),
@@ -335,7 +349,7 @@ function readMemoryContext() {
   }
 }
 
-function buildPromptWithMemory(userPrompt) {
+function buildPromptWithMemory(userPrompt: string) {
   const memoryContext = readMemoryContext() || '(No saved memory yet)';
   const callbackEndpoint = `http://${CALLBACK_HOST}:${CALLBACK_PORT}/callback/telegram`;
 
@@ -362,7 +376,7 @@ function buildPromptWithMemory(userPrompt) {
 }
 
 class TelegramAcpClient {
-  async requestPermission(params) {
+  async requestPermission(params: any) {
     const { options } = params;
     if (!Array.isArray(options) || options.length === 0) {
       return { outcome: { outcome: 'cancelled' } };
@@ -372,7 +386,7 @@ class TelegramAcpClient {
       return { outcome: { outcome: 'cancelled' } };
     }
 
-    const preferred = options.find((option) => option.kind === ACP_PERMISSION_STRATEGY);
+    const preferred = options.find((option: any) => option.kind === ACP_PERMISSION_STRATEGY);
     const selectedOption = preferred || options[0];
 
     return {
@@ -383,7 +397,7 @@ class TelegramAcpClient {
     };
   }
 
-  async sessionUpdate(params) {
+  async sessionUpdate(params: any) {
     if (!activePromptCollector || params.sessionId !== acpSessionId) {
       return;
     }
@@ -395,11 +409,11 @@ class TelegramAcpClient {
     }
   }
 
-  async readTextFile(_params) {
+  async readTextFile(_params: any) {
     return {};
   }
 
-  async writeTextFile(_params) {
+  async writeTextFile(_params: any) {
     return {};
   }
 }
@@ -422,7 +436,7 @@ function resetAcpRuntime() {
   scheduleAcpPrewarm('runtime reset');
 }
 
-function scheduleAcpPrewarm(reason) {
+function scheduleAcpPrewarm(reason: string) {
   if (hasHealthyAcpRuntime() || acpInitPromise) {
     return;
   }
@@ -437,7 +451,7 @@ function scheduleAcpPrewarm(reason) {
     .then(() => {
       logInfo('Gemini ACP prewarm complete');
     })
-    .catch((error) => {
+    .catch((error: any) => {
       logInfo('Gemini ACP prewarm failed', { error: error?.message || String(error) });
       if (ACP_PREWARM_RETRY_MS > 0) {
         acpPrewarmRetryTimer = setTimeout(() => {
@@ -489,7 +503,7 @@ async function ensureAcpSession() {
       cwd: process.cwd(),
     });
 
-    geminiProcess.stderr.on('data', (chunk) => {
+    geminiProcess.stderr.on('data', (chunk: Buffer) => {
       const rawText = chunk.toString();
       appendGeminiStderrTail(rawText);
       const text = rawText.trim();
@@ -501,19 +515,19 @@ async function ensureAcpSession() {
       }
     });
 
-    geminiProcess.on('error', (error) => {
+    geminiProcess.on('error', (error: Error) => {
       console.error('Gemini ACP process error:', error.message);
       resetAcpRuntime();
     });
 
-    geminiProcess.on('close', (code, signal) => {
+    geminiProcess.on('close', (code: number, signal: string) => {
       console.error(`Gemini ACP process closed (code=${code}, signal=${signal})`);
       resetAcpRuntime();
     });
 
     // ACP uses JSON-RPC over streams; Gemini stdio is the ACP transport here.
-    const input = Writable.toWeb(geminiProcess.stdin);
-    const output = Readable.toWeb(geminiProcess.stdout);
+    const input = Writable.toWeb(geminiProcess.stdin) as unknown as WritableStream<Uint8Array>;
+    const output = Readable.toWeb(geminiProcess.stdout) as unknown as ReadableStream<Uint8Array>;
     const stream = acp.ndJsonStream(input, output);
 
     acpConnection = new acp.ClientSideConnection(() => acpClient, stream);
@@ -532,7 +546,7 @@ async function ensureAcpSession() {
 
       acpSessionId = session.sessionId;
       logInfo('ACP session ready', { sessionId: acpSessionId });
-    } catch (error) {
+    } catch (error: any) {
       const baseMessage = error?.message || String(error);
       const isInternalError = baseMessage.includes('Internal error');
       const hint = isInternalError
@@ -560,11 +574,11 @@ function hasHealthyAcpRuntime() {
   return Boolean(acpConnection && acpSessionId && geminiProcess && !geminiProcess.killed);
 }
 
-const messageQueue = [];
+const messageQueue: Array<any> = [];
 let isQueueProcessing = false;
 
-function enqueueMessage(messageContext) {
-  return new Promise((resolve, reject) => {
+function enqueueMessage(messageContext: any) {
+  return new Promise<void>((resolve, reject) => {
     const requestId = ++messageSequence;
     messageQueue.push({ requestId, messageContext, resolve, reject });
     logInfo('Message enqueued', { requestId, queueLength: messageQueue.length });
@@ -591,7 +605,7 @@ async function processQueue() {
       await processSingleMessage(item.messageContext);
       logInfo('Message processed', { requestId: item.requestId });
       item.resolve();
-    } catch (error) {
+    } catch (error: any) {
       logInfo('Message processing failed', { requestId: item.requestId, error: error?.message || String(error) });
       item.reject(error);
     }
@@ -602,16 +616,16 @@ async function processQueue() {
 /**
  * Streams text output from Gemini CLI for a single prompt.
  */
-async function runAcpPrompt(promptText) {
+async function runAcpPrompt(promptText: string) {
   await ensureAcpSession();
   logInfo('Starting ACP prompt', { sessionId: acpSessionId, promptLength: promptText.length });
   const promptForGemini = buildPromptWithMemory(promptText);
 
-  return new Promise((resolve, reject) => {
+  return new Promise<string>((resolve, reject) => {
     let fullResponse = '';
     let isTruncated = false;
     let isSettled = false;
-    let noOutputTimeout = null;
+    let noOutputTimeout: NodeJS.Timeout | null = null;
 
     const clearTimers = () => {
       clearTimeout(overallTimeout);
@@ -620,7 +634,7 @@ async function runAcpPrompt(promptText) {
       }
     };
 
-    const failOnce = (error) => {
+    const failOnce = (error: Error) => {
       if (isSettled) {
         return;
       }
@@ -631,7 +645,7 @@ async function runAcpPrompt(promptText) {
       reject(error);
     };
 
-    const resolveOnce = (value) => {
+    const resolveOnce = (value: string) => {
       if (isSettled) {
         return;
       }
@@ -664,7 +678,7 @@ async function runAcpPrompt(promptText) {
 
     activePromptCollector = {
       onActivity: refreshNoOutputTimer,
-      append: (textChunk) => {
+      append: (textChunk: string) => {
         refreshNoOutputTimer();
         if (isTruncated) {
           return;
@@ -689,20 +703,20 @@ async function runAcpPrompt(promptText) {
         },
       ],
     })
-      .then((result) => {
+      .then((result: any) => {
         if (result?.stopReason === 'cancelled' && !fullResponse) {
           failOnce(new Error('Gemini ACP prompt was cancelled'));
           return;
         }
         resolveOnce(fullResponse || 'No response received.');
       })
-      .catch((error) => {
+      .catch((error: any) => {
         failOnce(new Error(error?.message || 'Gemini ACP prompt failed'));
       });
   });
 }
 
-async function processSingleMessage(messageContext) {
+async function processSingleMessage(messageContext: any) {
   const stopTypingIndicator = messageContext.startTyping();
   try {
     const fullResponse = await runAcpPrompt(messageContext.text);
@@ -722,7 +736,7 @@ messagingClient.onTextMessage((messageContext) => {
   }
 
   enqueueMessage(messageContext)
-    .catch(async (error) => {
+    .catch(async (error: any) => {
       console.error('Error processing message:', error);
       await messageContext.sendText(`❌ Error: ${error.message}`);
     });
@@ -742,15 +756,15 @@ setupGracefulShutdown();
 // Launch the bot
 logInfo('Starting Agent ACP Bridge...');
 ensureBridgeHomeDirectory();
+ensureMemoryFile();
 lastIncomingChatId = loadPersistedCallbackChatId();
 if (lastIncomingChatId) {
   logInfo('Loaded callback chat binding', { chatId: lastIncomingChatId });
 }
+startCallbackServer();
 scheduleAcpPrewarm('startup');
 messagingClient.launch()
   .then(async () => {
-    ensureMemoryFile();
-
     logInfo('Bot launched successfully', {
       typingIntervalMs: TYPING_INTERVAL_MS,
       geminiTimeoutMs: GEMINI_TIMEOUT_MS,
@@ -764,8 +778,6 @@ messagingClient.launch()
       acpMode: `${GEMINI_COMMAND} --experimental-acp`,
     });
 
-    startCallbackServer();
-
     scheduleAcpPrewarm('post-launch');
 
     if (HEARTBEAT_INTERVAL_MS > 0) {
@@ -778,7 +790,7 @@ messagingClient.launch()
       }, HEARTBEAT_INTERVAL_MS);
     }
   })
-  .catch((error) => {
+  .catch((error: any) => {
     if (error?.response?.error_code === 404 && error?.on?.method === 'getMe') {
       console.error('Failed to launch bot: Telegram token is invalid (getMe returned 404 Not Found).');
       console.error('Update TELEGRAM_TOKEN in ~/.gemini-bridge/config.json or env and restart.');
