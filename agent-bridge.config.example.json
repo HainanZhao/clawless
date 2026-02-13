@@ -6,10 +6,14 @@
   "acpPermissionStrategy": "allow_once",
   "geminiTimeoutMs": 900000,
   "geminiNoOutputTimeoutMs": 60000,
+  "geminiKillGraceMs": 5000,
+  "acpStreamStdout": false,
+  "acpDebugStream": false,
   "maxResponseLength": 4000,
   "heartbeatIntervalMs": 60000,
   "callbackHost": "127.0.0.1",
   "callbackPort": 8787,
   "callbackAuthToken": "",
-  "callbackMaxBodyBytes": 65536
+  "callbackMaxBodyBytes": 65536,
+  "schedulesFilePath": "~/.gemini-bridge/schedules.json"
 }

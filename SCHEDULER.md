@@ -10,6 +10,8 @@ When a scheduled job runs:
 3. The response is sent back to your Telegram bot
 4. The result appears in your Telegram chat
 
+Schedules are persisted to disk and reloaded on startup. By default the file is `~/.gemini-bridge/schedules.json` and can be overridden via `SCHEDULES_FILE_PATH`.
+
 ## API Endpoints
 
 All scheduler endpoints are available at `http://127.0.0.1:8787/api/schedule`

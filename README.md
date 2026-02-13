@@ -57,6 +57,8 @@ TELEGRAM_TOKEN=your_bot_token_here
 TYPING_INTERVAL_MS=4000
 GEMINI_TIMEOUT_MS=900000
 GEMINI_NO_OUTPUT_TIMEOUT_MS=60000
+ACP_STREAM_STDOUT=false
+ACP_DEBUG_STREAM=false
 ```
 
 ## Getting a Telegram Bot Token
@@ -185,9 +187,12 @@ pm2 save
 | `TYPING_INTERVAL_MS` | No | 4000 | Interval (in milliseconds) for refreshing Telegram typing status |
 | `GEMINI_TIMEOUT_MS` | No | 900000 | Overall timeout for a single Gemini CLI run |
 | `GEMINI_NO_OUTPUT_TIMEOUT_MS` | No | 60000 | Idle timeout; aborts if Gemini emits no output for this duration |
+| `GEMINI_KILL_GRACE_MS` | No | 5000 | Grace period after SIGTERM before escalating Gemini child process shutdown to SIGKILL |
 | `GEMINI_APPROVAL_MODE` | No | yolo | Gemini approval mode (for example: `default`, `auto_edit`, `yolo`, `plan`) |
 | `GEMINI_MODEL` | No | - | Gemini model override passed to CLI |
 | `ACP_PERMISSION_STRATEGY` | No | allow_once | Auto-select ACP permission option kind (`allow_once`, `reject_once`, or `cancelled`) |
+| `ACP_STREAM_STDOUT` | No | false | Writes raw ACP text chunks to stdout as they arrive |
+| `ACP_DEBUG_STREAM` | No | false | Writes structured ACP chunk timing/count debug logs |
 | `MAX_RESPONSE_LENGTH` | No | 4000 | Maximum response length in characters to prevent memory issues |
 | `HEARTBEAT_INTERVAL_MS` | No | 60000 | Server heartbeat log interval in milliseconds (`0` disables heartbeat logs) |
 | `CALLBACK_HOST` | No | 127.0.0.1 | Bind address for callback server |
@@ -197,6 +202,7 @@ pm2 save
 | `AGENT_BRIDGE_HOME` | No | ~/.gemini-bridge | Home directory for Gemini Bridge runtime files |
 | `MEMORY_FILE_PATH` | No | ~/.gemini-bridge/MEMORY.md | Persistent memory file path injected into Gemini prompt context |
 | `MEMORY_MAX_CHARS` | No | 12000 | Max memory-file characters injected into prompt context |
+| `SCHEDULES_FILE_PATH` | No | ~/.gemini-bridge/schedules.json | Persistent scheduler storage file |
 
 ### Local Callback Endpoint
 
@@ -230,6 +236,9 @@ curl -sS -X POST "http://127.0.0.1:8787/callback/telegram" \
 ### Scheduler API
 
 The bridge includes a built-in cron scheduler that allows you to schedule tasks to be executed through Gemini CLI:
+
+- Schedules are persisted to disk and automatically reloaded on restart.
+- Default storage path: `~/.gemini-bridge/schedules.json` (override with `SCHEDULES_FILE_PATH`).
 
 **Create a recurring schedule:**
 ```bash

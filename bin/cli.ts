@@ -14,7 +14,10 @@ const ENV_KEY_MAP: Record<string, string> = {
 	acpPermissionStrategy: 'ACP_PERMISSION_STRATEGY',
 	geminiTimeoutMs: 'GEMINI_TIMEOUT_MS',
 	geminiNoOutputTimeoutMs: 'GEMINI_NO_OUTPUT_TIMEOUT_MS',
+	geminiKillGraceMs: 'GEMINI_KILL_GRACE_MS',
 	maxResponseLength: 'MAX_RESPONSE_LENGTH',
+	acpStreamStdout: 'ACP_STREAM_STDOUT',
+	acpDebugStream: 'ACP_DEBUG_STREAM',
 	heartbeatIntervalMs: 'HEARTBEAT_INTERVAL_MS',
 	callbackHost: 'CALLBACK_HOST',
 	callbackPort: 'CALLBACK_PORT',
@@ -23,6 +26,7 @@ const ENV_KEY_MAP: Record<string, string> = {
 	agentBridgeHome: 'AGENT_BRIDGE_HOME',
 	memoryFilePath: 'MEMORY_FILE_PATH',
 	memoryMaxChars: 'MEMORY_MAX_CHARS',
+	schedulesFilePath: 'SCHEDULES_FILE_PATH',
 };
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.gemini-bridge', 'config.json');
@@ -37,7 +41,10 @@ const DEFAULT_CONFIG_TEMPLATE = {
 	acpPermissionStrategy: 'allow_once',
 	geminiTimeoutMs: 900000,
 	geminiNoOutputTimeoutMs: 60000,
+	geminiKillGraceMs: 5000,
 	maxResponseLength: 4000,
+	acpStreamStdout: false,
+	acpDebugStream: false,
 	heartbeatIntervalMs: 60000,
 	callbackHost: '127.0.0.1',
 	callbackPort: 8787,
@@ -46,6 +53,7 @@ const DEFAULT_CONFIG_TEMPLATE = {
 	agentBridgeHome: '~/.gemini-bridge',
 	memoryFilePath: '~/.gemini-bridge/MEMORY.md',
 	memoryMaxChars: 12000,
+	schedulesFilePath: '~/.gemini-bridge/schedules.json',
 };
 
 function printHelp() {
