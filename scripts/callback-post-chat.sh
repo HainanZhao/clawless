@@ -7,7 +7,7 @@ if [[ $# -lt 1 ]]; then
 fi
 
 CHAT_ID="$1"
-MESSAGE="${2:-Callback test to explicit chat from gemini-bridge}"
+MESSAGE="${2:-Callback test to explicit chat from clawless}"
 BASE_URL="${CALLBACK_BASE_URL:-http://127.0.0.1:8788}"
 ENDPOINT="$BASE_URL/callback/telegram"
 

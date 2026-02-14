@@ -1,8 +1,8 @@
 {
   "apps": [
     {
-      "name": "gemini-bridge",
-      "script": "gemini-bridge",
+      "name": "clawless",
+      "script": "clawless",
       "interpreter": "none",
       "instances": 1,
       "exec_mode": "fork",

@@ -1,11 +1,11 @@
 {
-  "name": "gemini-bridge",
-  "version": "0.1.1",
-  "description": "A bridge connecting messaging bot to Agent Gemini CLI using Agent Communication Protocol (ACP)",
+  "name": "clawless",
+  "version": "0.1.2",
+  "description": "A bridge connecting Telegram to Agent Gemini CLI using Agent Communication Protocol (ACP)",
   "main": "dist/index.js",
   "type": "module",
   "bin": {
-    "gemini-bridge": "./dist/bin/cli.js"
+    "clawless": "./dist/bin/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

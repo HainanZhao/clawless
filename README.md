@@ -35,18 +35,12 @@ The bridge:
 
 ## Installation
 
-1. Clone the repository:
-```bash
-git clone https://github.com/HainanZhao/RemoteAgent.git
-cd RemoteAgent
-```
-
-2. Install dependencies:
+1. Install dependencies:
 ```bash
 npm install
 ```
 
-3. Configure environment variables:
+2. Configure environment variables:
 ```bash
 cp .env.example .env
 ```
@@ -76,14 +70,14 @@ ACP_DEBUG_STREAM=false
 After install, the package exposes a CLI command:
 
 ```bash
-gemini-bridge
+clawless
 ```
 
 Local development alternatives:
 
 ```bash
 npm run cli
-npx gemini-bridge
+npx clawless
 ```
 
 ### Config File (CLI)
@@ -91,7 +85,7 @@ npx gemini-bridge
 On first run, the CLI automatically creates:
 
 ```text
-~/.gemini-bridge/config.json
+~/.clawless/config.json
 ```
 
 with placeholder values, then exits so you can edit it.
@@ -99,13 +93,13 @@ with placeholder values, then exits so you can edit it.
 After updating placeholders, run again:
 
 ```bash
-gemini-bridge
+clawless
 ```
 
 You can also use a custom path:
 
 ```bash
-gemini-bridge --config /path/to/config.json
+clawless --config /path/to/config.json
 ```
 
 If the custom config path does not exist, a template file is created there as well.
@@ -113,7 +107,7 @@ If the custom config path does not exist, a template file is created there as we
 You can still bootstrap from the example file if preferred:
 
 ```bash
-cp gemini-bridge.config.example.json ~/.gemini-bridge/config.json
+cp clawless.config.example.json ~/.clawless/config.json
 ```
 
 Environment variables still work and take precedence over config values.
@@ -123,7 +117,7 @@ Environment variables still work and take precedence over config values.
 Simple background run:
 
 ```bash
-nohup gemini-bridge > gemini-bridge.log 2>&1 &
+nohup clawless > clawless.log 2>&1 &
 ```
 
 Recommended for production: PM2 (see section below).
@@ -160,15 +154,15 @@ PM2 will automatically create the `logs/` directory for log files.
 
 3. View logs:
 ```bash
-pm2 logs telegram-gemini-bridge
+pm2 logs clawless
 ```
 
 4. Manage the process:
 ```bash
 pm2 status                    # View status
-pm2 restart telegram-gemini-bridge  # Restart
-pm2 stop telegram-gemini-bridge     # Stop
-pm2 delete telegram-gemini-bridge   # Remove from PM2
+pm2 restart clawless  # Restart
+pm2 stop clawless     # Stop
+pm2 delete clawless   # Remove from PM2
 ```
 
 5. Set up auto-start on system boot:
@@ -199,10 +193,10 @@ pm2 save
 | `CALLBACK_PORT` | No | 8788 | Bind port for callback server |
 | `CALLBACK_AUTH_TOKEN` | No | - | Optional bearer/token guard for callback endpoint |
 | `CALLBACK_MAX_BODY_BYTES` | No | 65536 | Maximum accepted callback request body size |
-| `AGENT_BRIDGE_HOME` | No | ~/.gemini-bridge | Home directory for Gemini Bridge runtime files |
-| `MEMORY_FILE_PATH` | No | ~/.gemini-bridge/MEMORY.md | Persistent memory file path injected into Gemini prompt context |
+| `AGENT_BRIDGE_HOME` | No | ~/.clawless | Home directory for Gemini Bridge runtime files |
+| `MEMORY_FILE_PATH` | No | ~/.clawless/MEMORY.md | Persistent memory file path injected into Gemini prompt context |
 | `MEMORY_MAX_CHARS` | No | 12000 | Max memory-file characters injected into prompt context |
-| `SCHEDULES_FILE_PATH` | No | ~/.gemini-bridge/schedules.json | Persistent scheduler storage file |
+| `SCHEDULES_FILE_PATH` | No | ~/.clawless/schedules.json | Persistent scheduler storage file |
 
 ### Local Callback Endpoint
 
@@ -238,7 +232,7 @@ curl -sS -X POST "http://127.0.0.1:8788/callback/telegram" \
 The bridge includes a built-in cron scheduler that allows you to schedule tasks to be executed through Gemini CLI:
 
 - Schedules are persisted to disk and automatically reloaded on restart.
-- Default storage path: `~/.gemini-bridge/schedules.json` (override with `SCHEDULES_FILE_PATH`).
+- Default storage path: `~/.clawless/schedules.json` (override with `SCHEDULES_FILE_PATH`).
 
 **Create a recurring schedule:**
 ```bash
@@ -273,8 +267,8 @@ See [SCHEDULER.md](SCHEDULER.md) for complete API documentation.
 
 ### Persistent Memory File
 
-- The bridge ensures a memory file exists at `~/.gemini-bridge/MEMORY.md` on startup.
-- Gemini is started with include access to both `~/.gemini-bridge` and your full home directory (`~/`).
+- The bridge ensures a memory file exists at `~/.clawless/MEMORY.md` on startup.
+- Gemini is started with include access to both `~/.clawless` and your full home directory (`~/`).
 - ACP session setup uses the required `mcpServers` field with an empty array and relies on Gemini CLI runtime defaults for MCP/skills loading.
 - Each prompt includes memory instructions and current `MEMORY.md` content.
 - When asked to memorize/remember something, Gemini is instructed to append new notes under `## Notes`.

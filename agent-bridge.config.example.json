@@ -15,5 +15,5 @@
   "callbackPort": 8788,
   "callbackAuthToken": "",
   "callbackMaxBodyBytes": 65536,
-  "schedulesFilePath": "~/.gemini-bridge/schedules.json"
+  "schedulesFilePath": "~/.clawless/schedules.json"
 }

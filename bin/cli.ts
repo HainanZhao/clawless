@@ -29,8 +29,8 @@ const ENV_KEY_MAP: Record<string, string> = {
 	schedulesFilePath: 'SCHEDULES_FILE_PATH',
 };
 
-const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.gemini-bridge', 'config.json');
-const DEFAULT_AGENT_BRIDGE_HOME = path.join(os.homedir(), '.gemini-bridge');
+const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.clawless', 'config.json');
+const DEFAULT_AGENT_BRIDGE_HOME = path.join(os.homedir(), '.clawless');
 const DEFAULT_MEMORY_FILE_PATH = path.join(DEFAULT_AGENT_BRIDGE_HOME, 'MEMORY.md');
 const DEFAULT_CONFIG_TEMPLATE = {
 	telegramToken: 'your_telegram_bot_token_here',
@@ -50,20 +50,20 @@ const DEFAULT_CONFIG_TEMPLATE = {
 	callbackPort: 8788,
 	callbackAuthToken: '',
 	callbackMaxBodyBytes: 65536,
-	agentBridgeHome: '~/.gemini-bridge',
-	memoryFilePath: '~/.gemini-bridge/MEMORY.md',
+	agentBridgeHome: '~/.clawless',
+	memoryFilePath: '~/.clawless/MEMORY.md',
 	memoryMaxChars: 12000,
-	schedulesFilePath: '~/.gemini-bridge/schedules.json',
+	schedulesFilePath: '~/.clawless/schedules.json',
 };
 
 function printHelp() {
-	console.log(`gemini-bridge
+	console.log(`clawless
 
 Usage:
-	gemini-bridge [--config <path>]
+	clawless [--config <path>]
 
 Options:
-	--config <path>   Path to JSON config file (default: ~/.gemini-bridge/config.json)
+	--config <path>   Path to JSON config file (default: ~/.clawless/config.json)
 	-h, --help        Show this help message
 
 Config precedence:
@@ -175,9 +175,9 @@ function ensureMemoryFile(memoryFilePath: string) {
 	if (!fs.existsSync(absolutePath)) {
 		fs.mkdirSync(path.dirname(absolutePath), { recursive: true });
 		const template = [
-			'# Agent Bridge Memory',
+			'# Clawless Memory',
 			'',
-			'This file stores durable memory notes for Agent Bridge.',
+			'This file stores durable memory notes for Clawless.',
 			'',
 			'## Notes',
 			'',
@@ -206,7 +206,7 @@ function ensureMemoryFromEnv() {
 
 function logMemoryFileCreation(memoryState: { created: boolean; path: string }) {
 	if (memoryState.created) {
-		console.log(`[gemini-bridge] Created memory file: ${memoryState.path}`);
+		console.log(`[clawless] Created memory file: ${memoryState.path}`);
 	}
 }
 
@@ -235,14 +235,14 @@ try {
 	logMemoryFileCreation(memoryState);
 
 	if (configState.created) {
-		console.log(`[gemini-bridge] Created config template: ${configState.path}`);
-		console.log('[gemini-bridge] Fill in placeholder values, then run gemini-bridge again.');
+		console.log(`[clawless] Created config template: ${configState.path}`);
+		console.log('[clawless] Fill in placeholder values, then run clawless again.');
 		process.exit(0);
 	}
 
 	const loadedConfigPath = loadConfigFile(args.configPath);
 	if (loadedConfigPath) {
-		console.log(`[gemini-bridge] Loaded config: ${loadedConfigPath}`);
+		console.log(`[clawless] Loaded config: ${loadedConfigPath}`);
 	}
 
 	const postConfigMemoryState = ensureMemoryFromEnv();
@@ -250,6 +250,6 @@ try {
 
 	await import('../index.js');
 } catch (error: any) {
-	console.error(`[gemini-bridge] ${error.message}`);
+	console.error(`[clawless] ${error.message}`);
 	process.exit(1);
 }

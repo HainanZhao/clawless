@@ -38,7 +38,7 @@ const ACP_DEBUG_STREAM = String(process.env.ACP_DEBUG_STREAM || '').toLowerCase(
 const HEARTBEAT_INTERVAL_MS = parseInt(process.env.HEARTBEAT_INTERVAL_MS || '60000', 10);
 const ACP_PREWARM_RETRY_MS = parseInt(process.env.ACP_PREWARM_RETRY_MS || '30000', 10);
 const GEMINI_KILL_GRACE_MS = parseInt(process.env.GEMINI_KILL_GRACE_MS || '5000', 10);
-const AGENT_BRIDGE_HOME = process.env.AGENT_BRIDGE_HOME || path.join(os.homedir(), '.gemini-bridge');
+const AGENT_BRIDGE_HOME = process.env.AGENT_BRIDGE_HOME || path.join(os.homedir(), '.clawless');
 const MEMORY_FILE_PATH = process.env.MEMORY_FILE_PATH || path.join(AGENT_BRIDGE_HOME, 'MEMORY.md');
 const SCHEDULES_FILE_PATH = process.env.SCHEDULES_FILE_PATH || path.join(AGENT_BRIDGE_HOME, 'schedules.json');
 const CALLBACK_CHAT_STATE_FILE_PATH = path.join(AGENT_BRIDGE_HOME, 'callback-chat-state.json');
@@ -1263,7 +1263,7 @@ messagingClient.launch()
   .catch((error: any) => {
     if (error?.response?.error_code === 404 && error?.on?.method === 'getMe') {
       console.error('Failed to launch bot: Telegram token is invalid (getMe returned 404 Not Found).');
-      console.error('Update TELEGRAM_TOKEN in ~/.gemini-bridge/config.json or env and restart.');
+      console.error('Update TELEGRAM_TOKEN in ~/.clawless/config.json or env and restart.');
       process.exit(1);
     }
 

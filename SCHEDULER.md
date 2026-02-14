@@ -1,6 +1,6 @@
 # Scheduler API Documentation
 
-The Agent Bridge now includes a cron scheduler API that allows you to schedule tasks to be executed through Gemini CLI at specific times or on a recurring basis.
+The Clawless now includes a cron scheduler API that allows you to schedule tasks to be executed through Gemini CLI at specific times or on a recurring basis.
 
 ## Overview
 
@@ -10,7 +10,7 @@ When a scheduled job runs:
 3. The response is sent back to your Telegram bot
 4. The result appears in your Telegram chat
 
-Schedules are persisted to disk and reloaded on startup. By default the file is `~/.gemini-bridge/schedules.json` and can be overridden via `SCHEDULES_FILE_PATH`.
+Schedules are persisted to disk and reloaded on startup. By default the file is `~/.clawless/schedules.json` and can be overridden via `SCHEDULES_FILE_PATH`.
 
 ## API Endpoints
 

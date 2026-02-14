@@ -4,7 +4,7 @@ This guide will help you start using the scheduler feature in under 5 minutes.
 
 ## Prerequisites
 
-1. Agent Bridge is installed and configured
+1. Clawless is installed and configured
 2. You have sent at least one message to your bot (to establish chat binding)
 3. The bridge is running (`npm run dev` or `npm start`)
 
@@ -223,4 +223,4 @@ You: "Check if there are any urgent emails every 30 minutes and notify me if fou
 
 ---
 
-That's it! You're ready to start scheduling with Agent Bridge. 🎉
+That's it! You're ready to start scheduling with Clawless. 🎉
