@@ -439,11 +439,6 @@ The codebase is designed to be simple and extensible:
 - **Never commit** `.env` file with your token (it's in `.gitignore`)
 - **Rotate tokens** if accidentally exposed
 - **Limit bot access** using Telegram's bot settings
-- **Configure user whitelist**: Add your Telegram user ID to `telegramWhitelist` in config to authorize access
-  - Find your user ID by messaging the bot (check logs) or using bots like [@userinfobot](https://t.me/userinfobot)
-  - Example config: `"telegramWhitelist": [123456789, 987654321]`
-  - **Default behavior**: If whitelist is empty, all users are blocked (safe default)
-  - Unauthorized access attempts are logged with user ID for security monitoring
 - **Monitor logs** for unusual activity and unauthorized access attempts
 
 ## Contributing
