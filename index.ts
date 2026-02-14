@@ -1160,8 +1160,17 @@ async function processSingleMessage(messageContext: any, messageRequestId: numbe
   };
 
   const finalizeCurrentMessage = async () => {
-    if (!liveMessageId || finalizedViaLiveMessage) {
+    if (!liveMessageId) {
       return;
+    }
+
+    // Wait for any pending message start to complete
+    if (startingLiveMessage) {
+      try {
+        await startingLiveMessage;
+      } catch (_) {
+        // Ignore errors, will be handled elsewhere
+      }
     }
 
     clearFlushTimer();
@@ -1186,7 +1195,7 @@ async function processSingleMessage(messageContext: any, messageRequestId: numbe
     // Reset state to start a new message
     liveMessageId = undefined;
     previewBuffer = '';
-    lastFlushAt = 0;
+    lastFlushAt = Date.now();
     startingLiveMessage = null;
   };
 
