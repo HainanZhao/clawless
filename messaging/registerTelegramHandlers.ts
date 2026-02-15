@@ -23,7 +23,9 @@ export function registerTelegramHandlers({
 }: RegisterTelegramHandlersParams) {
   messagingClient.onTextMessage(async (messageContext: any) => {
     if (!isUserAuthorized(messageContext.username, telegramWhitelist)) {
-      console.warn(`Unauthorized access attempt from username: ${messageContext.username ?? 'none'} (ID: ${messageContext.userId ?? 'unknown'})`);
+      console.warn(
+        `Unauthorized access attempt from username: ${messageContext.username ?? 'none'} (ID: ${messageContext.userId ?? 'unknown'})`,
+      );
       await messageContext.sendText('🚫 Unauthorized. This bot is restricted to authorized users only.');
       return;
     }
@@ -44,16 +46,15 @@ export function registerTelegramHandlers({
       return;
     }
 
-    enqueueMessage(messageContext)
-      .catch(async (error: unknown) => {
-        console.error('Error processing message:', error);
-        const errorMessage = getErrorMessage(error);
-        if (errorMessage.toLowerCase().includes('aborted by user')) {
-          await messageContext.sendText('⏹️ Gemini action stopped.');
-          return;
-        }
-        await messageContext.sendText(`❌ Error: ${errorMessage}`);
-      });
+    enqueueMessage(messageContext).catch(async (error: unknown) => {
+      console.error('Error processing message:', error);
+      const errorMessage = getErrorMessage(error);
+      if (errorMessage.toLowerCase().includes('aborted by user')) {
+        await messageContext.sendText('⏹️ Gemini action stopped.');
+        return;
+      }
+      await messageContext.sendText(`❌ Error: ${errorMessage}`);
+    });
   });
 
   messagingClient.onError((error: Error, messageContext: any) => {

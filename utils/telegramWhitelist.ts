@@ -6,9 +6,7 @@ export function parseWhitelistFromEnv(envValue: string): string[] {
   try {
     const parsed = JSON.parse(envValue);
     if (Array.isArray(parsed)) {
-      return parsed
-        .map((name) => String(name).trim().replace(/^@/, ''))
-        .filter(Boolean);
+      return parsed.map((name) => String(name).trim().replace(/^@/, '')).filter(Boolean);
     }
   } catch {
     console.warn('Warning: TELEGRAM_WHITELIST must be a valid JSON array of usernames (e.g., ["user1", "user2"])');

@@ -80,15 +80,14 @@ export function createCallbackServer({
     }
 
     const targetChatId = resolveChatId(
-      body?.chatId
-      ?? requestUrl.searchParams.get('chatId')
-      ?? getLastIncomingChatId(),
+      body?.chatId ?? requestUrl.searchParams.get('chatId') ?? getLastIncomingChatId(),
     );
 
     if (!targetChatId) {
       sendJson(res, 400, {
         ok: false,
-        error: 'No chat id available. Send one Telegram message to the bot once to bind a target chat, or provide `chatId` in this callback request.',
+        error:
+          'No chat id available. Send one Telegram message to the bot once to bind a target chat, or provide `chatId` in this callback request.',
       });
       return;
     }

@@ -40,6 +40,15 @@ export interface CronSchedulerOptions {
   logInfo?: (message: string, details?: unknown) => void;
 }
 
+export interface UpdateScheduleInput {
+  message?: string;
+  description?: string;
+  cronExpression?: string;
+  oneTime?: boolean;
+  runAt?: Date;
+  active?: boolean;
+}
+
 export class CronScheduler {
   private jobs: Map<string, ScheduleJob> = new Map();
   private jobCallback: (schedule: ScheduleConfig) => Promise<void>;
@@ -51,13 +60,15 @@ export class CronScheduler {
     this.jobCallback = callback;
     this.persistenceFilePath = options.persistenceFilePath || null;
     this.timezone = options.timezone || process.env.TZ || 'UTC';
-    this.logInfo = options.logInfo || ((message: string, details?: unknown) => {
-      if (details !== undefined) {
-        console.log(`[CronScheduler] ${message}`, details);
-      } else {
-        console.log(`[CronScheduler] ${message}`);
-      }
-    });
+    this.logInfo =
+      options.logInfo ||
+      ((message: string, details?: unknown) => {
+        if (details !== undefined) {
+          console.log(`[CronScheduler] ${message}`, details);
+        } else {
+          console.log(`[CronScheduler] ${message}`);
+        }
+      });
 
     this.loadPersistedSchedules();
   }
@@ -120,7 +131,7 @@ export class CronScheduler {
         },
         {
           timezone: this.timezone,
-        }
+        },
       );
 
       if (!config.active) {
@@ -247,6 +258,29 @@ export class CronScheduler {
   }
 
   /**
+   * Update an existing schedule
+   */
+  updateSchedule(scheduleId: string, updates: UpdateScheduleInput): ScheduleConfig | null {
+    const job = this.jobs.get(scheduleId);
+    if (!job) {
+      return null;
+    }
+
+    const nextConfig: ScheduleConfig = {
+      ...job.config,
+      ...updates,
+    };
+
+    this.validateScheduleConfig(nextConfig);
+
+    job.config = nextConfig;
+    this.configureRuntimeForJob(job);
+    this.persistSchedules();
+
+    return job.config;
+  }
+
+  /**
    * Execute a scheduled job
    */
   private async executeJob(scheduleId: string): Promise<void> {
@@ -286,7 +320,7 @@ export class CronScheduler {
    * List all schedules
    */
   listSchedules(): ScheduleConfig[] {
-    return Array.from(this.jobs.values()).map(job => job.config);
+    return Array.from(this.jobs.values()).map((job) => job.config);
   }
 
   /**
@@ -348,8 +382,14 @@ export class CronScheduler {
    * Shutdown all scheduled jobs
    */
   shutdown(): void {
-    for (const [scheduleId] of this.jobs) {
-      this.removeSchedule(scheduleId);
+    for (const [, job] of this.jobs) {
+      if (job.task) {
+        job.task.stop();
+      }
+
+      if (job.timeout) {
+        clearTimeout(job.timeout);
+      }
     }
   }
 }

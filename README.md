@@ -261,7 +261,7 @@ The bridge exposes:
 
 - `POST http://127.0.0.1:8788/callback/telegram` - Send messages to Telegram
 - `GET http://127.0.0.1:8788/healthz` - Health check
-- `POST/GET/DELETE http://127.0.0.1:8788/api/schedule`, `GET http://127.0.0.1:8788/api/schedule/:id` - Scheduler API
+- `POST/GET/DELETE http://127.0.0.1:8788/api/schedule`, `GET/PATCH http://127.0.0.1:8788/api/schedule/:id` - Scheduler API
 
 Request body for callback:
 
@@ -312,6 +312,19 @@ curl -X POST http://127.0.0.1:8788/api/schedule \
     "runAt": "2026-02-13T15:30:00Z"
   }'
 ```
+
+**Update an existing schedule:**
+```bash
+curl -X PATCH http://127.0.0.1:8788/api/schedule/<schedule_id> \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated reminder",
+    "cronExpression": "0 10 * * *"
+  }'
+```
+
+- Schedule updates should always go through the Scheduler API (`POST/GET/PATCH/DELETE`).
+- Do not edit `schedules.json` directly; runtime state is managed in-memory and persisted by the scheduler.
 
 When a scheduled job runs, it executes the message through your configured local agent runtime and sends the response to your Telegram chat.
 

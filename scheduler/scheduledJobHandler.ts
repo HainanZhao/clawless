@@ -1,4 +1,4 @@
-import { ScheduleConfig } from './cronScheduler.js';
+import type { ScheduleConfig } from './cronScheduler.js';
 import { getErrorMessage } from '../utils/error.js';
 
 export interface ScheduledJobHandlerDeps {

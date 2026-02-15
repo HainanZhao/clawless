@@ -134,8 +134,7 @@ export async function processSingleTelegramMessage({
     if (startingLiveMessage) {
       try {
         await startingLiveMessage;
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     clearFlushTimer();
@@ -185,8 +184,7 @@ export async function processSingleTelegramMessage({
     if (startingLiveMessage) {
       try {
         await startingLiveMessage;
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     if (liveMessageId) {
@@ -217,8 +215,7 @@ export async function processSingleTelegramMessage({
     if (liveMessageId && !finalizedViaLiveMessage && !promptCompleted) {
       try {
         await messageContext.removeMessage(liveMessageId);
-      } catch (_) {
-      }
+      } catch (_) {}
     }
 
     stopTypingIndicator();

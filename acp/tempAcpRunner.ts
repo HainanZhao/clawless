@@ -85,19 +85,22 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
       });
       tempProcess.kill('SIGTERM');
 
-      setTimeout(() => {
-        if (settled || tempProcess.killed || tempProcess.exitCode !== null) {
-          finalize('already-exited');
-          return;
-        }
+      setTimeout(
+        () => {
+          if (settled || tempProcess.killed || tempProcess.exitCode !== null) {
+            finalize('already-exited');
+            return;
+          }
 
-        logInfo('Scheduler temp Gemini process SIGKILL escalation', {
-          scheduleId,
-          pid: tempProcess.pid,
-        });
-        tempProcess.kill('SIGKILL');
-        finalize('sigkill');
-      }, Math.max(0, GEMINI_KILL_GRACE_MS));
+          logInfo('Scheduler temp Gemini process SIGKILL escalation', {
+            scheduleId,
+            pid: tempProcess.pid,
+          });
+          tempProcess.kill('SIGKILL');
+          finalize('sigkill');
+        },
+        Math.max(0, GEMINI_KILL_GRACE_MS),
+      );
     });
   };
 
@@ -130,8 +133,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
       if (tempConnection && tempSessionId) {
         await tempConnection.cancel({ sessionId: tempSessionId });
       }
-    } catch (_) {
-    }
+    } catch (_) {}
 
     if (!tempProcess.killed && tempProcess.exitCode === null) {
       await terminateProcessGracefully();
@@ -240,8 +242,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
             if (tempConnection && tempSessionId) {
               await tempConnection.cancel({ sessionId: tempSessionId });
             }
-          } catch (_) {
-          }
+          } catch (_) {}
 
           await settle(() => reject(new Error(`Scheduler Gemini ACP produced no output for ${noOutputTimeoutMs}ms`)));
         }, noOutputTimeoutMs);
@@ -252,8 +253,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
           if (tempConnection && tempSessionId) {
             await tempConnection.cancel({ sessionId: tempSessionId });
           }
-        } catch (_) {
-        }
+        } catch (_) {}
 
         await settle(() => reject(new Error(`Scheduler Gemini ACP timed out after ${timeoutMs}ms`)));
       }, timeoutMs);
@@ -281,10 +281,11 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
 
       refreshNoOutputTimer();
 
-      tempConnection.prompt({
-        sessionId: tempSessionId,
-        prompt: [{ type: 'text', text: promptForGemini }],
-      })
+      tempConnection
+        .prompt({
+          sessionId: tempSessionId,
+          prompt: [{ type: 'text', text: promptForGemini }],
+        })
         .then(async (result: any) => {
           if (ACP_DEBUG_STREAM) {
             logInfo('Scheduler ACP prompt stop reason', {

@@ -1,4 +1,4 @@
-import http from 'node:http';
+import type http from 'node:http';
 
 export function sendJson(res: http.ServerResponse, statusCode: number, payload: unknown) {
   res.statusCode = statusCode;
@@ -13,9 +13,8 @@ export function isCallbackAuthorized(req: http.IncomingMessage, authToken: strin
 
   const headerToken = req.headers['x-callback-token'];
   const authHeader = req.headers.authorization;
-  const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
-    ? authHeader.slice('Bearer '.length)
-    : null;
+  const bearerToken =
+    typeof authHeader === 'string' && authHeader.startsWith('Bearer ') ? authHeader.slice('Bearer '.length) : null;
 
   return headerToken === authToken || bearerToken === authToken;
 }

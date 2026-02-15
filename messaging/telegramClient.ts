@@ -95,7 +95,11 @@ export class TelegramMessagingClient {
   typingIntervalMs: number;
   maxMessageLength: number;
 
-  constructor({ token, typingIntervalMs, maxMessageLength }: { token: string; typingIntervalMs: number; maxMessageLength: number }) {
+  constructor({
+    token,
+    typingIntervalMs,
+    maxMessageLength,
+  }: { token: string; typingIntervalMs: number; maxMessageLength: number }) {
     this.bot = new Telegraf(token);
     this.typingIntervalMs = typingIntervalMs;
     this.maxMessageLength = maxMessageLength;

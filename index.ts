@@ -115,6 +115,10 @@ const cronScheduler = new CronScheduler(handleScheduledJob, {
   logInfo,
 });
 
+logInfo('Scheduler persistence configured', {
+  schedulesFilePath: SCHEDULES_FILE_PATH,
+});
+
 const { startCallbackServer, stopCallbackServer } = createCallbackServer({
   callbackHost: CALLBACK_HOST,
   callbackPort: CALLBACK_PORT,
@@ -193,19 +197,19 @@ const runAcpPrompt = acpRuntime.runAcpPrompt;
 const hasActiveAcpPrompt = acpRuntime.hasActiveAcpPrompt;
 const cancelActiveAcpPrompt = acpRuntime.cancelActiveAcpPrompt;
 
-
 const { enqueueMessage, getQueueLength } = createMessageQueueProcessor({
-  processSingleMessage: (messageContext, messageRequestId) => processSingleTelegramMessage({
-    messageContext,
-    messageRequestId,
-    maxResponseLength: MAX_RESPONSE_LENGTH,
-    streamUpdateIntervalMs: TELEGRAM_STREAM_UPDATE_INTERVAL_MS,
-    messageGapThresholdMs: MESSAGE_GAP_THRESHOLD_MS,
-    acpDebugStream: ACP_DEBUG_STREAM,
-    runAcpPrompt,
-    logInfo,
-    getErrorMessage,
-  }),
+  processSingleMessage: (messageContext, messageRequestId) =>
+    processSingleTelegramMessage({
+      messageContext,
+      messageRequestId,
+      maxResponseLength: MAX_RESPONSE_LENGTH,
+      streamUpdateIntervalMs: TELEGRAM_STREAM_UPDATE_INTERVAL_MS,
+      messageGapThresholdMs: MESSAGE_GAP_THRESHOLD_MS,
+      acpDebugStream: ACP_DEBUG_STREAM,
+      runAcpPrompt,
+      logInfo,
+      getErrorMessage,
+    }),
   logInfo,
   getErrorMessage,
 });
@@ -242,7 +246,8 @@ if (lastIncomingChatId) {
 }
 startCallbackServer();
 acpRuntime.scheduleAcpPrewarm('startup');
-messagingClient.launch()
+messagingClient
+  .launch()
   .then(async () => {
     logInfo('Bot launched successfully', {
       typingIntervalMs: TYPING_INTERVAL_MS,
@@ -255,7 +260,8 @@ messagingClient.launch()
       callbackPort: CALLBACK_PORT,
       mcpSkillsSource: 'local Gemini CLI defaults (no MCP override)',
       acpMode: `${GEMINI_COMMAND} --experimental-acp`,
-      telegramWhitelist: TELEGRAM_WHITELIST.length > 0 ? `${TELEGRAM_WHITELIST.length} user(s) authorized` : 'NONE (all users blocked)',
+      telegramWhitelist:
+        TELEGRAM_WHITELIST.length > 0 ? `${TELEGRAM_WHITELIST.length} user(s) authorized` : 'NONE (all users blocked)',
     });
 
     if (TELEGRAM_WHITELIST.length === 0) {

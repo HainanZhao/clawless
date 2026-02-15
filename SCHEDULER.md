@@ -180,6 +180,56 @@ curl -X DELETE http://127.0.0.1:8788/api/schedule/schedule_1707835800000_abc123
 }
 ```
 
+### Update a Schedule
+
+**PATCH** `/api/schedule/:id`
+
+Update one or more fields on an existing schedule.
+
+```bash
+curl -X PATCH http://127.0.0.1:8788/api/schedule/schedule_1707835800000_abc123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "description": "Updated calendar summary",
+    "cronExpression": "0 10 * * *"
+  }'
+```
+
+**Request Body (all fields optional):**
+```json
+{
+  "message": "Optional updated prompt",
+  "description": "Optional updated description",
+  "cronExpression": "Optional updated cron expression",
+  "oneTime": false,
+  "runAt": "Optional updated ISO timestamp",
+  "active": true
+}
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "schedule": {
+    "id": "schedule_1707835800000_abc123",
+    "message": "Check my calendar",
+    "description": "Updated calendar summary",
+    "cronExpression": "0 10 * * *",
+    "oneTime": false,
+    "createdAt": "2026-02-13T10:00:00.000Z",
+    "active": true,
+    "lastRun": "2026-02-13T09:00:00.000Z"
+  }
+}
+```
+
+### Important: Always Use API for Mutations
+
+- Create, update, and delete schedules only through the Scheduler API endpoints.
+- Do not edit `~/.clawless/schedules.json` directly.
+- The scheduler keeps live in-memory state and persists it; manual file edits can be overwritten or ignored until restart.
+
 ## Using with Your Local CLI (Default: Gemini)
 
 The configured local CLI is aware of the scheduler API through the system prompt. With the default setup, you can ask Gemini to create schedules naturally:

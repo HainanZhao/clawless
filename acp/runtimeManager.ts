@@ -1,4 +1,4 @@
-import { ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
+import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
 
@@ -99,21 +99,24 @@ export function createAcpRuntime({
       });
       childProcess.kill('SIGTERM');
 
-      setTimeout(() => {
-        if (settled || childProcess.killed || childProcess.exitCode !== null) {
-          finalize('already-exited');
-          return;
-        }
+      setTimeout(
+        () => {
+          if (settled || childProcess.killed || childProcess.exitCode !== null) {
+            finalize('already-exited');
+            return;
+          }
 
-        logInfo('Escalating Gemini process termination to SIGKILL', {
-          processLabel,
-          pid: childProcess.pid,
-          ...details,
-        });
+          logInfo('Escalating Gemini process termination to SIGKILL', {
+            processLabel,
+            pid: childProcess.pid,
+            ...details,
+          });
 
-        childProcess.kill('SIGKILL');
-        finalize('sigkill');
-      }, Math.max(0, geminiKillGraceMs));
+          childProcess.kill('SIGKILL');
+          finalize('sigkill');
+        },
+        Math.max(0, geminiKillGraceMs),
+      );
     });
   };
 
@@ -130,8 +133,7 @@ export function createAcpRuntime({
       if (acpConnection && acpSessionId) {
         await acpConnection.cancel({ sessionId: acpSessionId });
       }
-    } catch (_) {
-    }
+    } catch (_) {}
   };
 
   const shutdownAcpRuntime = async (reason: string) => {
@@ -425,23 +427,23 @@ export function createAcpRuntime({
           if (onChunk) {
             try {
               onChunk(textChunk);
-            } catch (_) {
-            }
+            } catch (_) {}
           }
         },
       };
 
       refreshNoOutputTimer();
 
-      acpConnection.prompt({
-        sessionId: acpSessionId,
-        prompt: [
-          {
-            type: 'text',
-            text: promptForGemini,
-          },
-        ],
-      })
+      acpConnection
+        .prompt({
+          sessionId: acpSessionId,
+          prompt: [
+            {
+              type: 'text',
+              text: promptForGemini,
+            },
+          ],
+        })
         .then((result: any) => {
           if (acpDebugStream) {
             logInfo('ACP prompt stop reason', {
@@ -453,7 +455,11 @@ export function createAcpRuntime({
             });
           }
           if (result?.stopReason === 'cancelled' && !fullResponse) {
-            failOnce(new Error(manualAbortRequested ? 'Gemini ACP prompt was aborted by user' : 'Gemini ACP prompt was cancelled'));
+            failOnce(
+              new Error(
+                manualAbortRequested ? 'Gemini ACP prompt was aborted by user' : 'Gemini ACP prompt was cancelled',
+              ),
+            );
             return;
           }
           resolveOnce(fullResponse || 'No response received.');
