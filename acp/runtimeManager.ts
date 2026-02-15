@@ -49,7 +49,15 @@ export function createAcpRuntime({
   getErrorMessage,
   logInfo,
 }: CreateAcpRuntimeParams) {
-  const acpPrewarmMaxRetries = Number.parseInt(process.env.ACP_PREWARM_MAX_RETRIES || '10', 10);
+  const defaultAcpPrewarmMaxRetries = 10;
+  const acpPrewarmMaxRetriesEnv = process.env.ACP_PREWARM_MAX_RETRIES;
+  const parsedAcpPrewarmMaxRetries = Number.parseInt(
+    acpPrewarmMaxRetriesEnv ?? `${defaultAcpPrewarmMaxRetries}`,
+    10,
+  );
+  const acpPrewarmMaxRetries = Number.isNaN(parsedAcpPrewarmMaxRetries)
+    ? defaultAcpPrewarmMaxRetries
+    : parsedAcpPrewarmMaxRetries;
 
   let geminiProcess: any = null;
   let acpConnection: any = null;
