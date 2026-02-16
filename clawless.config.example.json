@@ -30,5 +30,11 @@
   "agentBridgeHome": "~/.clawless",
   "memoryFilePath": "~/.clawless/MEMORY.md",
   "memoryMaxChars": 12000,
+  "conversationHistoryEnabled": true,
+  "conversationHistoryFilePath": "~/.clawless/conversation-history.json",
+  "conversationHistoryMaxEntries": 100,
+  "conversationHistoryMaxCharsPerEntry": 2000,
+  "conversationHistoryMaxTotalChars": 8000,
+  "conversationHistoryMaxRecentEntries": 5,
   "schedulesFilePath": "~/.clawless/schedules.json"
 }

@@ -94,6 +94,12 @@ Canonical config/env key mapping is documented in [README.md](README.md) under â
 | `AGENT_BRIDGE_HOME` | No | ~/.clawless | Home directory for runtime files |
 | `MEMORY_FILE_PATH` | No | ~/.clawless/MEMORY.md | Persistent memory file path injected into Gemini prompt context |
 | `MEMORY_MAX_CHARS` | No | 12000 | Max memory-file characters injected into prompt context |
+| `CONVERSATION_HISTORY_ENABLED` | No | true | Enable/disable conversation history tracking and injection |
+| `CONVERSATION_HISTORY_FILE_PATH` | No | ~/.clawless/conversation-history.json | Conversation history storage file path |
+| `CONVERSATION_HISTORY_MAX_ENTRIES` | No | 100 | Maximum number of conversation entries to keep (FIFO rotation) |
+| `CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY` | No | 2000 | Maximum characters per conversation entry (truncates longer messages) |
+| `CONVERSATION_HISTORY_MAX_TOTAL_CHARS` | No | 8000 | Maximum total characters to inject into prompt context |
+| `CONVERSATION_HISTORY_MAX_RECENT_ENTRIES` | No | 5 | Maximum recent conversation entries to inject per chat |
 | `SCHEDULES_FILE_PATH` | No | ~/.clawless/schedules.json | Persistent scheduler storage file |
 
 ### Local Callback Endpoint

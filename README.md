@@ -39,6 +39,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 - 🛠️ **Rich Tool Support**: Leverages MCP (Model Context Protocol) servers connected to your local CLI runtime
 - 🔒 **Privacy**: Runs on your hardware, you control data flow
 - 💾 **Persistent Context**: Maintains local session unlike standard API calls
+- 🧠 **Conversation Memory**: Automatically tracks and injects relevant conversation history into prompts for context-aware responses
 - 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
 - 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API
@@ -266,6 +267,12 @@ Clawless supports both JSON config keys and environment variables for runtime se
 | `agentBridgeHome` | `AGENT_BRIDGE_HOME` |
 | `memoryFilePath` | `MEMORY_FILE_PATH` |
 | `memoryMaxChars` | `MEMORY_MAX_CHARS` |
+| `conversationHistoryEnabled` | `CONVERSATION_HISTORY_ENABLED` |
+| `conversationHistoryFilePath` | `CONVERSATION_HISTORY_FILE_PATH` |
+| `conversationHistoryMaxEntries` | `CONVERSATION_HISTORY_MAX_ENTRIES` |
+| `conversationHistoryMaxCharsPerEntry` | `CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY` |
+| `conversationHistoryMaxTotalChars` | `CONVERSATION_HISTORY_MAX_TOTAL_CHARS` |
+| `conversationHistoryMaxRecentEntries` | `CONVERSATION_HISTORY_MAX_RECENT_ENTRIES` |
 | `schedulesFilePath` | `SCHEDULES_FILE_PATH` |
 
 Notes:

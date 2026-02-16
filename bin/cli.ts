@@ -38,6 +38,12 @@ const ENV_KEY_MAP: Record<string, string> = {
   ClawlessHome: 'AGENT_BRIDGE_HOME',
   memoryFilePath: 'MEMORY_FILE_PATH',
   memoryMaxChars: 'MEMORY_MAX_CHARS',
+  conversationHistoryEnabled: 'CONVERSATION_HISTORY_ENABLED',
+  conversationHistoryFilePath: 'CONVERSATION_HISTORY_FILE_PATH',
+  conversationHistoryMaxEntries: 'CONVERSATION_HISTORY_MAX_ENTRIES',
+  conversationHistoryMaxCharsPerEntry: 'CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY',
+  conversationHistoryMaxTotalChars: 'CONVERSATION_HISTORY_MAX_TOTAL_CHARS',
+  conversationHistoryMaxRecentEntries: 'CONVERSATION_HISTORY_MAX_RECENT_ENTRIES',
   schedulesFilePath: 'SCHEDULES_FILE_PATH',
 };
 
@@ -76,6 +82,12 @@ const DEFAULT_CONFIG_TEMPLATE = {
   agentBridgeHome: '~/.clawless',
   memoryFilePath: '~/.clawless/MEMORY.md',
   memoryMaxChars: 12000,
+  conversationHistoryEnabled: true,
+  conversationHistoryFilePath: '~/.clawless/conversation-history.json',
+  conversationHistoryMaxEntries: 100,
+  conversationHistoryMaxCharsPerEntry: 2000,
+  conversationHistoryMaxTotalChars: 8000,
+  conversationHistoryMaxRecentEntries: 5,
   schedulesFilePath: '~/.clawless/schedules.json',
 };
 
