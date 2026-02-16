@@ -26,6 +26,12 @@ import {
   readMemoryContext,
   buildPromptWithMemory as buildPromptWithMemoryTemplate,
 } from './utils/memory.js';
+import {
+  ensureConversationHistoryFile,
+  appendConversationEntry,
+  buildConversationContext,
+  type ConversationHistoryConfig,
+} from './utils/conversationHistory.js';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -86,6 +92,14 @@ const CALLBACK_HOST = process.env.CALLBACK_HOST || 'localhost';
 const CALLBACK_PORT = parseInt(process.env.CALLBACK_PORT || '8788', 10);
 const CALLBACK_AUTH_TOKEN = process.env.CALLBACK_AUTH_TOKEN || '';
 const CALLBACK_MAX_BODY_BYTES = parseInt(process.env.CALLBACK_MAX_BODY_BYTES || '65536', 10);
+
+// Conversation history configuration
+const CONVERSATION_HISTORY_ENABLED = String(process.env.CONVERSATION_HISTORY_ENABLED || 'true').toLowerCase() === 'true';
+const CONVERSATION_HISTORY_FILE_PATH = process.env.CONVERSATION_HISTORY_FILE_PATH || path.join(AGENT_BRIDGE_HOME, 'conversation-history.json');
+const CONVERSATION_HISTORY_MAX_ENTRIES = parseInt(process.env.CONVERSATION_HISTORY_MAX_ENTRIES || '100', 10);
+const CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY = parseInt(process.env.CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY || '2000', 10);
+const CONVERSATION_HISTORY_MAX_TOTAL_CHARS = parseInt(process.env.CONVERSATION_HISTORY_MAX_TOTAL_CHARS || '8000', 10);
+const CONVERSATION_HISTORY_MAX_RECENT_ENTRIES = parseInt(process.env.CONVERSATION_HISTORY_MAX_RECENT_ENTRIES || '5', 10);
 
 // Typing indicator refresh interval (platform typing state expires quickly)
 const TYPING_INTERVAL_MS = parseInt(process.env.TYPING_INTERVAL_MS || '4000', 10);
@@ -156,7 +170,17 @@ if (MESSAGING_PLATFORM === 'telegram') {
 const enforceWhitelist = true;
 
 let lastIncomingChatId: string | null = null;
+let currentProcessingChatId: string | null = null;
 const GEMINI_STDERR_TAIL_MAX = 4000;
+
+// Conversation history configuration
+const conversationHistoryConfig: ConversationHistoryConfig = {
+  filePath: CONVERSATION_HISTORY_FILE_PATH,
+  maxEntries: CONVERSATION_HISTORY_MAX_ENTRIES,
+  maxCharsPerEntry: CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY,
+  maxTotalChars: CONVERSATION_HISTORY_MAX_TOTAL_CHARS,
+  logInfo,
+};
 
 function validateGeminiCommandOrExit() {
   const result = spawnSync(GEMINI_COMMAND, ['--version'], {
@@ -208,8 +232,21 @@ const { startCallbackServer, stopCallbackServer } = createCallbackServer({
   logInfo,
 });
 
-function buildPromptWithMemory(userPrompt: string) {
+function buildPromptWithMemory(userPrompt: string, chatId?: string) {
   const memoryContext = readMemoryContext(MEMORY_FILE_PATH, MEMORY_MAX_CHARS, logInfo) || '(No saved memory yet)';
+
+  // Use provided chatId or fall back to current processing context
+  const effectiveChatId = chatId || currentProcessingChatId;
+
+  // Build conversation context if enabled and chatId is available
+  let conversationContext: string | undefined;
+  if (CONVERSATION_HISTORY_ENABLED && effectiveChatId) {
+    conversationContext = buildConversationContext(
+      conversationHistoryConfig,
+      effectiveChatId,
+      CONVERSATION_HISTORY_MAX_RECENT_ENTRIES,
+    );
+  }
 
   return buildPromptWithMemoryTemplate({
     userPrompt,
@@ -220,6 +257,7 @@ function buildPromptWithMemory(userPrompt: string) {
     callbackAuthToken: CALLBACK_AUTH_TOKEN,
     memoryContext,
     messagingPlatform: MESSAGING_PLATFORM,
+    conversationContext,
   });
 }
 
@@ -277,8 +315,11 @@ const hasActiveAcpPrompt = acpRuntime.hasActiveAcpPrompt;
 const cancelActiveAcpPrompt = acpRuntime.cancelActiveAcpPrompt;
 
 const { enqueueMessage, getQueueLength } = createMessageQueueProcessor({
-  processSingleMessage: (messageContext, messageRequestId) =>
-    processSingleTelegramMessage({
+  processSingleMessage: (messageContext, messageRequestId) => {
+    // Set current processing chat context for buildPromptWithMemory
+    currentProcessingChatId = messageContext.chatId;
+    
+    return processSingleTelegramMessage({
       messageContext,
       messageRequestId,
       maxResponseLength: MAX_RESPONSE_LENGTH,
@@ -288,7 +329,21 @@ const { enqueueMessage, getQueueLength } = createMessageQueueProcessor({
       runAcpPrompt,
       logInfo,
       getErrorMessage,
-    }),
+      onConversationComplete: CONVERSATION_HISTORY_ENABLED
+        ? (userMessage, botResponse, chatId) => {
+            appendConversationEntry(conversationHistoryConfig, {
+              chatId,
+              userMessage,
+              botResponse,
+              platform: MESSAGING_PLATFORM,
+            });
+          }
+        : undefined,
+    }).finally(() => {
+      // Clear context after processing
+      currentProcessingChatId = null;
+    });
+  },
   logInfo,
   getErrorMessage,
 });
@@ -322,6 +377,9 @@ logInfo('Starting Clawless server...', {
 validateGeminiCommandOrExit();
 ensureBridgeHomeDirectory(AGENT_BRIDGE_HOME);
 ensureMemoryFile(MEMORY_FILE_PATH, logInfo);
+if (CONVERSATION_HISTORY_ENABLED) {
+  ensureConversationHistoryFile(CONVERSATION_HISTORY_FILE_PATH, logInfo);
+}
 lastIncomingChatId = loadPersistedCallbackChatId(CALLBACK_CHAT_STATE_FILE_PATH, logInfo);
 if (lastIncomingChatId) {
   logInfo('Loaded callback chat binding', { chatId: lastIncomingChatId });
@@ -340,6 +398,8 @@ messagingClient
       heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
       acpPrewarmRetryMs: ACP_PREWARM_RETRY_MS,
       memoryFilePath: MEMORY_FILE_PATH,
+      conversationHistoryEnabled: CONVERSATION_HISTORY_ENABLED,
+      conversationHistoryFilePath: CONVERSATION_HISTORY_ENABLED ? CONVERSATION_HISTORY_FILE_PATH : 'disabled',
       callbackHost: CALLBACK_HOST,
       callbackPort: CALLBACK_PORT,
       mcpSkillsSource: 'local Gemini CLI defaults (no MCP override)',

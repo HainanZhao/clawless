@@ -48,6 +48,7 @@ export function buildPromptWithMemory(params: {
   callbackAuthToken: string;
   memoryContext: string;
   messagingPlatform: string;
+  conversationContext?: string;
 }) {
   const {
     userPrompt,
@@ -58,12 +59,13 @@ export function buildPromptWithMemory(params: {
     callbackAuthToken,
     memoryContext,
     messagingPlatform,
+    conversationContext,
   } = params;
 
   const callbackEndpoint = `http://${callbackHost}:${callbackPort}/callback/${messagingPlatform}`;
   const scheduleEndpoint = `http://${callbackHost}:${callbackPort}/api/schedule`;
 
-  return [
+  const parts = [
     'System instruction:',
     `- Persistent memory file path: ${memoryFilePath}`,
     '- If user asks to remember/memorize/save for later, append a concise bullet under "## Notes" in that file.',
@@ -93,8 +95,14 @@ export function buildPromptWithMemory(params: {
     '',
     'Current memory context:',
     memoryContext,
-    '',
-    'User message:',
-    userPrompt,
-  ].join('\n');
+  ];
+
+  // Inject conversation history if available
+  if (conversationContext) {
+    parts.push('', 'Recent conversation history:', conversationContext);
+  }
+
+  parts.push('', 'User message:', userPrompt);
+
+  return parts.join('\n');
 }

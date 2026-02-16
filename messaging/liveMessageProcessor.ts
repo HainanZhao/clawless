@@ -10,6 +10,7 @@ type ProcessSingleMessageParams = {
   runAcpPrompt: (promptText: string, onChunk?: (chunk: string) => void) => Promise<string>;
   logInfo: LogInfoFn;
   getErrorMessage: (error: unknown, fallbackMessage?: string) => string;
+  onConversationComplete?: (userMessage: string, botResponse: string, chatId: string) => void;
 };
 
 export async function processSingleTelegramMessage({
@@ -22,6 +23,7 @@ export async function processSingleTelegramMessage({
   runAcpPrompt,
   logInfo,
   getErrorMessage,
+  onConversationComplete,
 }: ProcessSingleMessageParams) {
   logInfo('Starting message processing', {
     requestId: messageRequestId,
@@ -209,6 +211,18 @@ export async function processSingleTelegramMessage({
 
     if (!finalizedViaLiveMessage) {
       await messageContext.sendText(fullResponse || 'No response received.');
+    }
+
+    // Track conversation history after successful completion
+    if (onConversationComplete && fullResponse) {
+      try {
+        onConversationComplete(messageContext.text, fullResponse, messageContext.chatId);
+      } catch (error: any) {
+        logInfo('Failed to track conversation history', {
+          requestId: messageRequestId,
+          error: getErrorMessage(error),
+        });
+      }
     }
   } finally {
     clearFlushTimer();
