@@ -371,7 +371,7 @@ export function createAcpRuntime({
 
   const runAcpPrompt = async (promptText: string, onChunk?: (chunk: string) => void) => {
     await ensureAcpSession();
-    const promptInvocationId = `telegram-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const promptInvocationId = `acp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     logInfo('Starting ACP prompt', {
       invocationId: promptInvocationId,
       sessionId: acpSessionId,
@@ -497,7 +497,7 @@ export function createAcpRuntime({
               stopReason: result?.stopReason || '(none)',
               chunkCount,
               bufferedLength: fullResponse.length,
-              deliveryMode: 'telegram-live-preview-then-final',
+              deliveryMode: 'live-preview-then-final',
             });
           }
           if (result?.stopReason === 'cancelled' && !fullResponse) {

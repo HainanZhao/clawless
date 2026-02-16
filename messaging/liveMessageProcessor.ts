@@ -23,7 +23,7 @@ export async function processSingleTelegramMessage({
   logInfo,
   getErrorMessage,
 }: ProcessSingleMessageParams) {
-  logInfo('Starting Telegram message processing', {
+  logInfo('Starting message processing', {
     requestId: messageRequestId,
     chatId: messageContext.chatId,
   });
@@ -71,7 +71,7 @@ export async function processSingleTelegramMessage({
     try {
       await messageContext.updateLiveMessage(liveMessageId, text);
       if (acpDebugStream) {
-        logInfo('Telegram live preview updated', {
+        logInfo('Live preview updated', {
           requestId: messageRequestId,
           previewLength: text.length,
         });
@@ -79,7 +79,7 @@ export async function processSingleTelegramMessage({
     } catch (error: any) {
       const errorMessage = getErrorMessage(error).toLowerCase();
       if (!errorMessage.includes('message is not modified')) {
-        logInfo('Telegram live preview update skipped', {
+        logInfo('Live preview update skipped', {
           requestId: messageRequestId,
           error: getErrorMessage(error),
         });
@@ -201,7 +201,7 @@ export async function processSingleTelegramMessage({
     }
 
     if (!finalizedViaLiveMessage && acpDebugStream) {
-      logInfo('Sending Telegram final response', {
+      logInfo('Sending final response', {
         requestId: messageRequestId,
         responseLength: (fullResponse || '').length,
       });
@@ -219,7 +219,7 @@ export async function processSingleTelegramMessage({
     }
 
     stopTypingIndicator();
-    logInfo('Finished Telegram message processing', {
+    logInfo('Finished message processing', {
       requestId: messageRequestId,
       chatId: messageContext.chatId,
     });

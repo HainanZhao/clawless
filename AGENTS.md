@@ -19,7 +19,13 @@ cp .env.example .env
 3. Edit `.env` and set at least:
 
 ```env
+MESSAGING_PLATFORM=telegram
 TELEGRAM_TOKEN=your_bot_token_here
+# For Slack mode set MESSAGING_PLATFORM=slack and configure:
+# SLACK_BOT_TOKEN=xoxb-your-bot-token
+# SLACK_SIGNING_SECRET=your-signing-secret
+# SLACK_WHITELIST=["U01234567","user@example.com"]
+# For email-based allowlist entries, add OAuth scopes: users:read and users:read.email
 TYPING_INTERVAL_MS=4000
 GEMINI_TIMEOUT_MS=1200000
 GEMINI_NO_OUTPUT_TIMEOUT_MS=300000
@@ -56,13 +62,21 @@ npx tsc -p tsconfig.json --noEmit
 
 ## Runtime Configuration
 
+Canonical config/env key mapping is documented in [README.md](README.md) under “Configuration Reference (Consolidated)”. Keep that section as the source of truth.
+
 ### Environment Variables
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `TELEGRAM_TOKEN` | Yes | - | Your Telegram bot token from BotFather |
-| `TELEGRAM_WHITELIST` | No | [] | List of authorized Telegram usernames. If empty, all users are blocked by default. Format: JSON array `["username1", "username2"]` |
-| `TYPING_INTERVAL_MS` | No | 4000 | Interval (in milliseconds) for refreshing Telegram typing status |
+| `MESSAGING_PLATFORM` | No | telegram | Active messaging platform (`telegram` or `slack`) |
+| `TELEGRAM_TOKEN` | Yes (telegram) | - | Your Telegram bot token from BotFather |
+| `SLACK_BOT_TOKEN` | Yes (slack) | - | Slack bot token (`xoxb-...`) |
+| `SLACK_SIGNING_SECRET` | Yes (slack) | - | Slack app signing secret |
+| `SLACK_APP_TOKEN` | No | - | Slack Socket Mode app token (`xapp-...`) |
+| `SLACK_WHITELIST` | Yes (slack) | - | List of authorized Slack principals (user IDs or emails). Must be a non-empty JSON array and should stay small (max 10 users). Format: `["U01234567", "user@example.com"]`. Email matching requires OAuth scopes `users:read` and `users:read.email`. |
+| `TELEGRAM_WHITELIST` | Yes (telegram) | - | List of authorized Telegram usernames. Must be a non-empty JSON array and should stay small (max 10 users). Format: `["username1", "username2"]` |
+| `TYPING_INTERVAL_MS` | No | 4000 | Interval (in milliseconds) for refreshing typing status |
+| `STREAM_UPDATE_INTERVAL_MS` | No | 5000 | Interval (in milliseconds) between progressive response message updates |
 | `GEMINI_TIMEOUT_MS` | No | 1200000 | Overall timeout for a single Gemini CLI run |
 | `GEMINI_NO_OUTPUT_TIMEOUT_MS` | No | 300000 | Idle timeout; aborts if Gemini emits no output for this duration |
 | `GEMINI_KILL_GRACE_MS` | No | 5000 | Grace period after SIGTERM before escalating Gemini child process shutdown to SIGKILL |
@@ -84,7 +98,9 @@ npx tsc -p tsconfig.json --noEmit
 
 ### Local Callback Endpoint
 
-- `POST http://127.0.0.1:8788/callback/telegram` - Send messages to Telegram
+- `POST http://127.0.0.1:8788/callback` - Send messages to active messaging platform
+- `POST http://127.0.0.1:8788/callback/telegram` - Telegram-compatible callback alias
+- `POST http://127.0.0.1:8788/callback/slack` - Slack callback alias (when Slack platform is active)
 - `GET http://127.0.0.1:8788/healthz` - Health check
 - `POST/GET/DELETE http://127.0.0.1:8788/api/schedule`, `GET/PATCH http://127.0.0.1:8788/api/schedule/:id` - Scheduler API
 
@@ -96,14 +112,14 @@ Request body for callback:
 }
 ```
 
-- `chatId` is optional; if omitted, the bridge sends to a persisted chat binding learned from inbound Telegram messages.
+- `chatId` is optional; if omitted, the bridge sends to a persisted chat binding learned from inbound platform messages/events.
 - To bind once, send any message to the bot from your target chat.
 - If `CALLBACK_AUTH_TOKEN` is set, send either `x-callback-token: <token>` or `Authorization: Bearer <token>`.
 
 Cron-friendly example:
 
 ```bash
-curl -sS -X POST "http://127.0.0.1:8788/callback/telegram" \
+curl -sS -X POST "http://127.0.0.1:8788/callback" \
   -H "Content-Type: application/json" \
   -H "x-callback-token: $CALLBACK_AUTH_TOKEN" \
   -d '{"text":"Backup completed at 03:00"}'
@@ -167,14 +183,14 @@ See [SCHEDULER.md](SCHEDULER.md) for complete API details.
 
 ### Response Length Limit
 
-- Default: 4000 characters (Telegram hard limit is 4096)
+- Default: 4000 characters (chosen as a conservative cross-platform default)
 - Longer outputs are truncated with a notification
 
 ## Internal Behavior
 
 ### Processing Flow
 
-1. User sends a message via Telegram.
+1. User sends a message via Telegram or Slack.
 2. Bridge queues the message if another request is in progress.
 3. Worker dequeues when prior processing completes.
 4. Agent run starts and typing status is shown.
@@ -213,8 +229,8 @@ gemini --help | grep acp
 ### Connection issues
 
 - Verify internet access.
-- Check Telegram API reachability.
-- Ensure `TELEGRAM_TOKEN` is correct.
+- Check platform API reachability.
+- Ensure platform credentials are correct (`TELEGRAM_TOKEN` for Telegram, Slack credentials for Slack).
 
 ## Codebase Notes
 
@@ -227,6 +243,7 @@ Clawless/
 │   └── cli.ts                      # CLI entrypoint
 ├── messaging/
 │   └── telegramClient.ts           # Telegram adapter
+│   └── slackClient.ts              # Slack adapter
 ├── scheduler/
 │   ├── cronScheduler.ts            # Schedule persistence + cron orchestration
 │   └── scheduledJobHandler.ts      # Scheduled run execution logic
@@ -242,7 +259,7 @@ Clawless/
 ### Extension Points
 
 - Core queue + ACP logic: `index.ts`
-- Messaging adapter logic: `messaging/telegramClient.ts`
+- Messaging adapter logic: `messaging/telegramClient.ts`, `messaging/slackClient.ts`
 - New interfaces can implement the same message context shape (`text`, `startTyping()`, `sendText()`).
 
 ## Security Notes

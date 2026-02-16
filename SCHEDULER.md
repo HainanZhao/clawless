@@ -8,7 +8,7 @@ When a scheduled job runs:
 1. The scheduled message is sent to a standalone local agent CLI session
 2. The agent processes the message and generates a response
 3. The response is sent back through the active interface adapter
-4. With the current Telegram adapter, the result appears in your Telegram chat
+4. The result appears in your active Telegram or Slack destination
 
 Schedules are persisted to disk and reloaded on startup. By default the file is `~/.clawless/schedules.json` and can be overridden via `SCHEDULES_FILE_PATH`.
 
@@ -262,7 +262,7 @@ The configured local CLI is aware of the scheduler API through the system prompt
    - The scheduler executes the job
   - The message is sent to a new local CLI session
   - The agent processes the message (can use tools, access files, etc.)
-  - The response is sent to the active interface destination (Telegram with current adapter)
+  - The response is sent to the active interface destination (Telegram or Slack)
 
 3. For recurring schedules:
    - The job runs according to the cron expression
@@ -275,8 +275,8 @@ The configured local CLI is aware of the scheduler API through the system prompt
 
 ## Notes
 
-- Schedules are stored in memory and will be lost if the bridge restarts
-- For the current Telegram adapter, make sure your bot has received at least one message so it knows where to send results
+- Schedules are persisted to disk and reloaded on restart (`~/.clawless/schedules.json` by default)
+- Ensure the active platform bot/app has received at least one inbound message/event so the bridge can bind a target destination for callbacks
 - The timezone used for cron schedules is determined by the `TZ` environment variable (defaults to UTC)
 - Scheduled jobs run in separate local CLI sessions, so they have access to all configured tools and MCP servers
 
@@ -287,8 +287,8 @@ The configured local CLI is aware of the scheduler API through the system prompt
 - Verify the cron expression is valid using a cron expression tester
 - Ensure the bridge is running continuously
 
-### Results not appearing in Telegram (current adapter)
-- Send at least one message to your bot first to establish the chat binding
+### Results not appearing in chat
+- Send at least one message/event to your active bot/app first to establish the chat binding
 - Check if `lastIncomingChatId` is set in the logs
 
 ### Authentication errors

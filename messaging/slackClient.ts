@@ -1,12 +1,28 @@
 import { App } from '@slack/bolt';
+import { slackifyMarkdown } from 'slackify-markdown';
 
 type SlackEvent = {
   channel: string;
+  user?: string;
+  userEmail?: string;
   text?: string;
   ts?: string;
   thread_ts?: string;
   subtype?: string;
 };
+
+function toSlackMrkdwn(text: string): string {
+  const normalized = String(text || '').replace(/\r\n/g, '\n');
+  if (!normalized) {
+    return normalized;
+  }
+
+  try {
+    return slackifyMarkdown(normalized);
+  } catch {
+    return normalized;
+  }
+}
 
 function splitTextIntoChunks(text: string, maxMessageLength: number): string[] {
   const normalizedText = String(text || '');
@@ -37,7 +53,10 @@ class SlackMessageContext {
   maxMessageLength: number;
   text: string;
   chatId: string | undefined;
+  userId: string | undefined;
+  userEmail: string | undefined;
   private typingInterval: NodeJS.Timeout | null = null;
+  private liveMessageTextByTs = new Map<string, string>();
 
   constructor(event: SlackEvent, app: App, typingIntervalMs: number, maxMessageLength: number) {
     this.event = event;
@@ -46,6 +65,8 @@ class SlackMessageContext {
     this.maxMessageLength = maxMessageLength;
     this.text = event.text || '';
     this.chatId = event.channel;
+    this.userId = event.user;
+    this.userEmail = event.userEmail;
   }
 
   startTyping() {
@@ -62,32 +83,43 @@ class SlackMessageContext {
   }
 
   async sendText(text: string) {
-    const chunks = splitTextIntoChunks(text, this.maxMessageLength);
+    const formattedText = toSlackMrkdwn(text);
+    const chunks = splitTextIntoChunks(formattedText, this.maxMessageLength);
     for (const chunk of chunks) {
       await this.app.client.chat.postMessage({
         channel: this.event.channel,
         text: chunk,
-        thread_ts: this.event.thread_ts || this.event.ts,
       });
     }
   }
 
   async startLiveMessage(initialText = '…') {
+    const formattedText = toSlackMrkdwn(initialText || '…');
     const result = await this.app.client.chat.postMessage({
       channel: this.event.channel,
-      text: initialText,
-      thread_ts: this.event.thread_ts || this.event.ts,
+      text: formattedText,
     });
-    return result.ts as string | undefined;
+    const messageTs = result.ts as string | undefined;
+    if (messageTs) {
+      this.liveMessageTextByTs.set(messageTs, formattedText);
+    }
+    return messageTs;
   }
 
   async updateLiveMessage(messageTs: string, text: string) {
     try {
+      const formattedText = toSlackMrkdwn(text || '…');
+      const previousText = this.liveMessageTextByTs.get(messageTs);
+      if (previousText === formattedText) {
+        return;
+      }
+
       await this.app.client.chat.update({
         channel: this.event.channel,
         ts: messageTs,
-        text: text || '…',
+        text: formattedText,
       });
+      this.liveMessageTextByTs.set(messageTs, formattedText);
     } catch (error: any) {
       // Slack may throw error if message hasn't changed
       // We'll ignore those errors
@@ -98,11 +130,20 @@ class SlackMessageContext {
   }
 
   async finalizeLiveMessage(messageTs: string, text: string) {
-    const finalText = text || 'No response received.';
+    const finalText = toSlackMrkdwn(text || 'No response received.');
     const chunks = splitTextIntoChunks(finalText, this.maxMessageLength);
+    const firstChunk = chunks[0] || 'No response received.';
+    const previousText = this.liveMessageTextByTs.get(messageTs);
 
     try {
-      await this.updateLiveMessage(messageTs, chunks[0] || 'No response received.');
+      if (previousText !== firstChunk) {
+        await this.app.client.chat.update({
+          channel: this.event.channel,
+          ts: messageTs,
+          text: firstChunk,
+        });
+        this.liveMessageTextByTs.set(messageTs, firstChunk);
+      }
     } catch (error: any) {
       const errorMessage = String(error?.message || '').toLowerCase();
       if (!errorMessage.includes('message_not_found') && !errorMessage.includes('cant_update_message')) {
@@ -115,7 +156,6 @@ class SlackMessageContext {
       await this.app.client.chat.postMessage({
         channel: this.event.channel,
         text: chunks[index],
-        thread_ts: this.event.thread_ts || this.event.ts,
       });
     }
   }
@@ -138,6 +178,7 @@ export class SlackMessagingClient {
   maxMessageLength: number;
   private messageHandlers: Array<(messageContext: SlackMessageContext) => Promise<void> | void> = [];
   private errorHandlers: Array<(error: Error, messageContext: SlackMessageContext | null) => void> = [];
+  private userEmailCache = new Map<string, string | undefined>();
 
   constructor({
     token,
@@ -171,8 +212,13 @@ export class SlackMessagingClient {
     this.app.message(async ({ message }) => {
       // Only handle regular messages (not bot messages)
       if (message.subtype === undefined && 'text' in message) {
+        const slackEvent = message as SlackEvent;
+        if (slackEvent.user) {
+          slackEvent.userEmail = await this.resolveUserEmail(slackEvent.user);
+        }
+
         const messageContext = new SlackMessageContext(
-          message as SlackEvent,
+          slackEvent,
           this.app,
           this.typingIntervalMs,
           this.maxMessageLength,
@@ -213,6 +259,27 @@ export class SlackMessagingClient {
     }
   }
 
+  private async resolveUserEmail(userId: string): Promise<string | undefined> {
+    if (this.userEmailCache.has(userId)) {
+      return this.userEmailCache.get(userId);
+    }
+
+    let email: string | undefined;
+
+    try {
+      const userInfo = await this.app.client.users.info({ user: userId });
+      const rawEmail = (userInfo as any)?.user?.profile?.email;
+      if (typeof rawEmail === 'string' && rawEmail.trim().length > 0) {
+        email = rawEmail.trim().toLowerCase();
+      }
+    } catch {
+      email = undefined;
+    }
+
+    this.userEmailCache.set(userId, email);
+    return email;
+  }
+
   async launch() {
     await this.app.start();
     console.log('⚡️ Slack app is running!');
@@ -220,7 +287,8 @@ export class SlackMessagingClient {
 
   async sendTextToChat(chatId: string | number, text: string) {
     const channel = String(chatId);
-    const chunks = splitTextIntoChunks(text, this.maxMessageLength);
+    const formattedText = toSlackMrkdwn(text);
+    const chunks = splitTextIntoChunks(formattedText, this.maxMessageLength);
     for (const chunk of chunks) {
       await this.app.client.chat.postMessage({
         channel,

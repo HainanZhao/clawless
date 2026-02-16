@@ -4,8 +4,8 @@ This guide walks through manual testing of the scheduler API functionality.
 
 ## Prerequisites
 
-1. The bridge must be running with a valid Telegram bot token
-2. You must have sent at least one message to the bot to establish a chat binding
+1. The bridge must be running with valid platform credentials (Telegram or Slack)
+2. You must have sent at least one message/event to the bot/app to establish a chat binding
 3. `curl` and `jq` must be installed for the test commands
 
 ## Test Setup
@@ -71,10 +71,10 @@ Wait for 60-65 seconds and observe:
 
 1. Check the bridge logs for:
    ```
-   [timestamp] Executing scheduled job { scheduleId: '...', message: '...' }
+  [timestamp] Executing scheduled job { scheduleId: '...', message: '...' }
    ```
 
-2. Check your Telegram chat for a message like:
+2. Check your active Telegram/Slack destination for a message like:
    ```
    🔔 Scheduled task completed:
 
@@ -106,7 +106,7 @@ curl -X POST http://127.0.0.1:8788/api/schedule \
 - Schedule created with `oneTime: true` and `runAt` timestamp
 
 Wait 30+ seconds and verify:
-1. The message appears in Telegram
+1. The message appears in your active Telegram/Slack destination
 2. The schedule is automatically removed (verify with List API)
 
 ### Test 6: Test Invalid Cron Expression
@@ -152,7 +152,7 @@ Verify deletion by listing schedules - the deleted schedule should not appear.
 
 ### Test 9: Test with Gemini CLI Integration
 
-Send a message to your Telegram bot:
+Send a message to your active Telegram or Slack bot/app:
 
 ```
 Create a schedule to check the weather every day at 8am
@@ -223,14 +223,14 @@ done
 ### Schedule not executing
 - Verify the bridge is still running
 - Check bridge logs for errors
-- Ensure Telegram chat binding is established (send a message to bot first)
+- Ensure chat binding is established (send a message/event to bot/app first)
 
 ### 404 Not Found
 - Verify the callback server is running on port 8788
 - Check if another process is using the port
 
-### No response in Telegram
-- Ensure you've sent at least one message to the bot
+### No response in chat destination
+- Ensure you've sent at least one message/event to the bot/app
 - Check if `lastIncomingChatId` is logged in the bridge output
 - Verify Gemini CLI is properly installed and configured
 
