@@ -1,6 +1,6 @@
 {
   "name": "clawless",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "A bridge connecting Telegram and Slack to Agent Gemini CLI using Agent Communication Protocol (ACP)",
   "main": "dist/index.js",
   "type": "module",
@@ -29,6 +29,14 @@
   ],
   "author": "Hainan Zhao",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HainanZhao/clawless.git"
+  },
+  "bugs": {
+    "url": "https://github.com/HainanZhao/clawless/issues"
+  },
+  "homepage": "https://github.com/HainanZhao/clawless#readme",
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.14.1",
     "@slack/bolt": "^4.1.0",
