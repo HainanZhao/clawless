@@ -46,12 +46,12 @@ export function registerTelegramHandlers({
 
     if (isAbortCommand(messageContext.text)) {
       if (!hasActiveAcpPrompt()) {
-        await messageContext.sendText('ℹ️ No active Gemini action to abort.');
+        await messageContext.sendText('ℹ️ No active agent action to abort.');
         return;
       }
 
       onAbortRequested();
-      await messageContext.sendText('⏹️ Abort requested. Stopping current Gemini action...');
+      await messageContext.sendText('⏹️ Abort requested. Stopping current agent action...');
       await cancelActiveAcpPrompt();
       return;
     }
@@ -60,7 +60,7 @@ export function registerTelegramHandlers({
       console.error('Error processing message:', error);
       const errorMessage = getErrorMessage(error);
       if (errorMessage.toLowerCase().includes('aborted by user')) {
-        await messageContext.sendText('⏹️ Gemini action stopped.');
+        await messageContext.sendText('⏹️ Agent action stopped.');
         return;
       }
       await messageContext.sendText(`❌ Error: ${errorMessage}`);

@@ -26,9 +26,15 @@ TELEGRAM_TOKEN=your_bot_token_here
 # SLACK_SIGNING_SECRET=your-signing-secret
 # SLACK_WHITELIST=["U01234567","user@example.com"]
 # For email-based allowlist entries, add OAuth scopes: users:read and users:read.email
+
+# CLI Agent Selection (default: gemini)
+CLI_AGENT=gemini
+# CLI_AGENT=opencode
+
+# CLI Agent settings
 TYPING_INTERVAL_MS=4000
-GEMINI_TIMEOUT_MS=1200000
-GEMINI_NO_OUTPUT_TIMEOUT_MS=300000
+CLI_AGENT_TIMEOUT_MS=1200000
+CLI_AGENT_NO_OUTPUT_TIMEOUT_MS=300000
 ACP_STREAM_STDOUT=false
 ACP_DEBUG_STREAM=false
 ```
@@ -77,11 +83,12 @@ Canonical config/env key mapping is documented in [README.md](README.md) under �
 | `TELEGRAM_WHITELIST` | Yes (telegram) | - | List of authorized Telegram usernames. Must be a non-empty JSON array and should stay small (max 10 users). Format: `["username1", "username2"]` |
 | `TYPING_INTERVAL_MS` | No | 4000 | Interval (in milliseconds) for refreshing typing status |
 | `STREAM_UPDATE_INTERVAL_MS` | No | 5000 | Interval (in milliseconds) between progressive response message updates |
-| `GEMINI_TIMEOUT_MS` | No | 1200000 | Overall timeout for a single Gemini CLI run |
-| `GEMINI_NO_OUTPUT_TIMEOUT_MS` | No | 300000 | Idle timeout; aborts if Gemini emits no output for this duration |
-| `GEMINI_KILL_GRACE_MS` | No | 5000 | Grace period after SIGTERM before escalating Gemini child process shutdown to SIGKILL |
-| `GEMINI_APPROVAL_MODE` | No | yolo | Gemini approval mode (`default`, `auto_edit`, `yolo`, `plan`) |
-| `GEMINI_MODEL` | No | - | Gemini model override passed to CLI |
+| `CLI_AGENT` | No | gemini | CLI agent type to use (`gemini` or `opencode`) |
+| `CLI_AGENT_TIMEOUT_MS` | No | 1200000 | Overall timeout for a single CLI agent run |
+| `CLI_AGENT_NO_OUTPUT_TIMEOUT_MS` | No | 300000 | Idle timeout; aborts if CLI agent emits no output for this duration |
+| `CLI_AGENT_KILL_GRACE_MS` | No | 5000 | Grace period after SIGTERM before escalating CLI agent child process shutdown to SIGKILL |
+| `CLI_AGENT_APPROVAL_MODE` | No | yolo | CLI agent approval mode (`default`, `auto_edit`, `yolo`, `plan`) |
+| `CLI_AGENT_MODEL` | No | - | CLI agent model override passed to the CLI |
 | `ACP_PERMISSION_STRATEGY` | No | allow_once | Auto-select ACP permission option kind (`allow_once`, `reject_once`, `cancelled`) |
 | `ACP_STREAM_STDOUT` | No | false | Writes raw ACP text chunks to stdout as they arrive |
 | `ACP_DEBUG_STREAM` | No | false | Writes structured ACP chunk timing/count debug logs |
@@ -91,8 +98,8 @@ Canonical config/env key mapping is documented in [README.md](README.md) under �
 | `CALLBACK_PORT` | No | 8788 | Bind port for callback server |
 | `CALLBACK_AUTH_TOKEN` | No | - | Optional bearer/token guard for callback endpoint |
 | `CALLBACK_MAX_BODY_BYTES` | No | 65536 | Maximum accepted callback request body size |
-| `AGENT_BRIDGE_HOME` | No | ~/.clawless | Home directory for runtime files |
-| `MEMORY_FILE_PATH` | No | ~/.clawless/MEMORY.md | Persistent memory file path injected into Gemini prompt context |
+| `CLAWLESS_HOME` | No | ~/.clawless | Home directory for runtime files |
+| `MEMORY_FILE_PATH` | No | ~/.clawless/MEMORY.md | Persistent memory file path injected into agent prompt context |
 | `MEMORY_MAX_CHARS` | No | 12000 | Max memory-file characters injected into prompt context |
 | `CONVERSATION_HISTORY_ENABLED` | No | true | Enable/disable conversation history tracking and injection |
 | `CONVERSATION_HISTORY_FILE_PATH` | No | ~/.clawless/conversation-history.jsonl | Conversation history JSONL file path |
@@ -201,9 +208,9 @@ See [doc/SCHEDULER.md](doc/SCHEDULER.md) for complete API details.
 
 ### Timeout Tuning
 
-- `GEMINI_TIMEOUT_MS`: hard cap for total request time (recommended: `1200000`)
-- `GEMINI_NO_OUTPUT_TIMEOUT_MS`: fail fast if output stalls (recommended: `300000`)
-- Set `GEMINI_NO_OUTPUT_TIMEOUT_MS=0` to disable idle timeout
+- `CLI_AGENT_TIMEOUT_MS`: hard cap for total request time (recommended: `1200000`)
+- `CLI_AGENT_NO_OUTPUT_TIMEOUT_MS`: fail fast if output stalls (recommended: `300000`)
+- Set `CLI_AGENT_NO_OUTPUT_TIMEOUT_MS=0` to disable idle timeout
 
 ### Response Length Limit
 
@@ -231,16 +238,26 @@ See [doc/SCHEDULER.md](doc/SCHEDULER.md) for complete API details.
 
 ### Bot does not respond
 
-1. Check Gemini CLI installation:
+1. Check CLI agent installation:
+
+```bash
+which gemini  # for Gemini CLI
+which opencode  # for OpenCode
+```
+
+Or check your configured CLI agent:
 
 ```bash
 which gemini
+# or
+which opencode
 ```
 
 2. Verify ACP support:
 
 ```bash
-gemini --help | grep acp
+gemini --help | grep acp  # for Gemini
+opencode --help | grep acp  # for OpenCode
 ```
 
 3. Check bot logs for runtime errors.
@@ -265,13 +282,21 @@ Clawless/
 ├── index.ts                        # Main bridge application
 ├── bin/
 │   └── cli.ts                      # CLI entrypoint
+├── core/
+│   ├── agents/                     # CLI agent abstraction
+│   │   ├── BaseCliAgent.ts         # Abstract base class for agents
+│   │   ├── GeminiAgent.ts          # Gemini CLI implementation
+│   │   ├── OpencodeAgent.ts        # OpenCode implementation
+│   │   └── agentFactory.ts         # Agent factory and validation
+│   └── callbackServer.ts           # Callback/API server
 ├── messaging/
-│   └── telegramClient.ts           # Telegram adapter
+│   ├── telegramClient.ts           # Telegram adapter
 │   └── slackClient.ts              # Slack adapter
 ├── scheduler/
 │   ├── cronScheduler.ts            # Schedule persistence + cron orchestration
 │   └── scheduledJobHandler.ts      # Scheduled run execution logic
 ├── acp/
+│   ├── runtimeManager.ts           # Agent-agnostic ACP runtime
 │   ├── tempAcpRunner.ts            # Isolated ACP run helper
 │   └── clientHelpers.ts            # ACP helper utilities
 ├── package.json                    # Node.js dependencies
@@ -284,7 +309,70 @@ Clawless/
 
 - Core queue + ACP logic: `index.ts`
 - Messaging adapter logic: `messaging/telegramClient.ts`, `messaging/slackClient.ts`
+- CLI agent implementations: `core/agents/`
 - New interfaces can implement the same message context shape (`text`, `startTyping()`, `sendText()`).
+
+### Adding New CLI Agents
+
+To add support for a new ACP-capable CLI agent:
+
+1. Create a new agent class in `core/agents/`:
+   ```typescript
+   import { BaseCliAgent, type CliAgentCapabilities, type CliAgentConfig } from './BaseCliAgent.js';
+   
+   export class MyNewAgent extends BaseCliAgent {
+     getCommand(): string {
+       return this.config.command;
+     }
+     
+     getDisplayName(): string {
+       return 'My New Agent';
+     }
+     
+     buildAcpArgs(): string[] {
+       const args = ['--experimental-acp'];
+       // Add agent-specific arguments
+       return args;
+     }
+     
+     getCapabilities(): CliAgentCapabilities {
+       return {
+         supportsAcp: true,
+         supportsApprovalMode: true,
+         supportsModelSelection: true,
+         supportsIncludeDirectories: true,
+       };
+     }
+     
+     validate(): { valid: boolean; error?: string } {
+       // Validate the agent is installed
+       return { valid: true };
+     }
+   }
+   ```
+
+2. Add the agent to `core/agents/agentFactory.ts`:
+   ```typescript
+   export type AgentType = 'gemini' | 'opencode' | 'mynewagent';
+   
+   export function createCliAgent(agentType: AgentType, config: CliAgentConfig): BaseCliAgent {
+     switch (agentType) {
+       case 'gemini':
+         return new GeminiAgent(config);
+       case 'opencode':
+         return new OpencodeAgent(config);
+       case 'mynewagent':
+         return new MyNewAgent(config);
+       // ...
+     }
+   }
+   ```
+
+3. Export the new agent from `core/agents/index.ts`
+
+4. Set `CLI_AGENT=mynewagent` in configuration
+
+The agent abstraction handles all the runtime integration automatically.
 
 ## Security Notes
 

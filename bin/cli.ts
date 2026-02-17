@@ -17,13 +17,13 @@ const ENV_KEY_MAP: Record<string, string> = {
   timezone: 'TZ',
   typingIntervalMs: 'TYPING_INTERVAL_MS',
   streamUpdateIntervalMs: 'STREAM_UPDATE_INTERVAL_MS',
-  geminiCommand: 'GEMINI_COMMAND',
-  geminiApprovalMode: 'GEMINI_APPROVAL_MODE',
-  geminiModel: 'GEMINI_MODEL',
+  cliAgent: 'CLI_AGENT',
+  cliAgentApprovalMode: 'CLI_AGENT_APPROVAL_MODE',
+  cliAgentModel: 'CLI_AGENT_MODEL',
+  cliAgentTimeoutMs: 'CLI_AGENT_TIMEOUT_MS',
+  cliAgentNoOutputTimeoutMs: 'CLI_AGENT_NO_OUTPUT_TIMEOUT_MS',
+  cliAgentKillGraceMs: 'CLI_AGENT_KILL_GRACE_MS',
   acpPermissionStrategy: 'ACP_PERMISSION_STRATEGY',
-  geminiTimeoutMs: 'GEMINI_TIMEOUT_MS',
-  geminiNoOutputTimeoutMs: 'GEMINI_NO_OUTPUT_TIMEOUT_MS',
-  geminiKillGraceMs: 'GEMINI_KILL_GRACE_MS',
   acpPrewarmRetryMs: 'ACP_PREWARM_RETRY_MS',
   acpPrewarmMaxRetries: 'ACP_PREWARM_MAX_RETRIES',
   acpMcpServersJson: 'ACP_MCP_SERVERS_JSON',
@@ -35,8 +35,7 @@ const ENV_KEY_MAP: Record<string, string> = {
   callbackPort: 'CALLBACK_PORT',
   callbackAuthToken: 'CALLBACK_AUTH_TOKEN',
   callbackMaxBodyBytes: 'CALLBACK_MAX_BODY_BYTES',
-  agentBridgeHome: 'AGENT_BRIDGE_HOME',
-  ClawlessHome: 'AGENT_BRIDGE_HOME',
+  clawlessHome: 'CLAWLESS_HOME',
   memoryFilePath: 'MEMORY_FILE_PATH',
   memoryMaxChars: 'MEMORY_MAX_CHARS',
   conversationHistoryEnabled: 'CONVERSATION_HISTORY_ENABLED',
@@ -53,8 +52,8 @@ const ENV_KEY_MAP: Record<string, string> = {
 };
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.clawless', 'config.json');
-const DEFAULT_AGENT_BRIDGE_HOME = path.join(os.homedir(), '.clawless');
-const DEFAULT_MEMORY_FILE_PATH = path.join(DEFAULT_AGENT_BRIDGE_HOME, 'MEMORY.md');
+const DEFAULT_CLAWLESS_HOME = path.join(os.homedir(), '.clawless');
+const DEFAULT_MEMORY_FILE_PATH = path.join(DEFAULT_CLAWLESS_HOME, 'MEMORY.md');
 const DEFAULT_CONFIG_TEMPLATE = {
   messagingPlatform: 'telegram',
   telegramToken: 'your_telegram_bot_token_here',
@@ -66,13 +65,13 @@ const DEFAULT_CONFIG_TEMPLATE = {
   timezone: 'UTC',
   typingIntervalMs: 4000,
   streamUpdateIntervalMs: 5000,
-  geminiCommand: 'gemini',
-  geminiApprovalMode: 'yolo',
-  geminiModel: '',
+  cliAgent: 'gemini',
+  cliAgentApprovalMode: 'yolo',
+  cliAgentModel: '',
+  cliAgentTimeoutMs: 1200000,
+  cliAgentNoOutputTimeoutMs: 300000,
+  cliAgentKillGraceMs: 5000,
   acpPermissionStrategy: 'allow_once',
-  geminiTimeoutMs: 1200000,
-  geminiNoOutputTimeoutMs: 300000,
-  geminiKillGraceMs: 5000,
   acpPrewarmRetryMs: 30000,
   acpPrewarmMaxRetries: 10,
   acpMcpServersJson: '',
@@ -84,7 +83,7 @@ const DEFAULT_CONFIG_TEMPLATE = {
   callbackPort: 8788,
   callbackAuthToken: '',
   callbackMaxBodyBytes: 65536,
-  agentBridgeHome: '~/.clawless',
+  clawlessHome: '~/.clawless',
   memoryFilePath: '~/.clawless/MEMORY.md',
   memoryMaxChars: 12000,
   conversationHistoryEnabled: true,
@@ -240,11 +239,11 @@ function ensureMemoryFile(memoryFilePath: string) {
 }
 
 function ensureMemoryFromEnv() {
-  const configuredHome = process.env.AGENT_BRIDGE_HOME || DEFAULT_AGENT_BRIDGE_HOME;
+  const configuredHome = process.env.CLAWLESS_HOME || DEFAULT_CLAWLESS_HOME;
   const configuredMemoryPath = process.env.MEMORY_FILE_PATH || path.join(configuredHome, 'MEMORY.md');
 
-  if (!process.env.AGENT_BRIDGE_HOME) {
-    process.env.AGENT_BRIDGE_HOME = configuredHome;
+  if (!process.env.CLAWLESS_HOME) {
+    process.env.CLAWLESS_HOME = configuredHome;
   }
 
   if (!process.env.MEMORY_FILE_PATH) {

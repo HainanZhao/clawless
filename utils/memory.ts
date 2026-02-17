@@ -91,7 +91,7 @@ export function buildPromptWithMemory(params: {
     `- Get schedule: GET ${scheduleEndpoint}/:id`,
     `- Delete schedule: DELETE ${scheduleEndpoint}/:id`,
     '- Never edit scheduler persistence files directly; always mutate schedules through the Scheduler API.',
-    `- When schedule runs, it executes the message through Gemini CLI and sends results to ${messagingPlatform}.`,
+    `- When schedule runs, it executes the message through the configured local CLI agent and sends results to ${messagingPlatform}.`,
     '- Use this API when user asks to schedule tasks, set reminders, or create recurring jobs.',
     '',
     '**Semantic recall API (on-demand):**',

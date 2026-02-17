@@ -4,15 +4,14 @@ import * as acp from '@agentclientprotocol/sdk';
 import { buildPermissionResponse, noOpAcpFileOperation } from './clientHelpers.js';
 import { getErrorMessage } from '../utils/error.js';
 import { getMcpServersForSession } from './mcpServerHelpers.js';
+import type { BaseCliAgent } from '../core/agents/index.js';
 
 const ACP_DEBUG_STREAM = String(process.env.ACP_DEBUG_STREAM || '').toLowerCase() === 'true';
-const GEMINI_KILL_GRACE_MS = parseInt(process.env.GEMINI_KILL_GRACE_MS || '5000', 10);
 
 export interface TempAcpRunnerOptions {
   scheduleId: string;
-  promptForGemini: string;
-  command: string;
-  args: string[];
+  promptForAgent: string;
+  cliAgent: BaseCliAgent;
   cwd: string;
   timeoutMs: number;
   noOutputTimeoutMs: number;
@@ -24,9 +23,8 @@ export interface TempAcpRunnerOptions {
 export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promise<string> {
   const {
     scheduleId,
-    promptForGemini,
-    command,
-    args,
+    promptForAgent,
+    cliAgent,
     cwd,
     timeoutMs,
     noOutputTimeoutMs,
@@ -35,14 +33,17 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
     logInfo,
   } = options;
 
+  const command = cliAgent.getCommand();
+  const args = cliAgent.buildAcpArgs();
+  const agentDisplayName = cliAgent.getDisplayName();
+  const commandToken = command.split(/[\\/]/).pop() || command;
+  const stderrPrefixToken = commandToken.toLowerCase().replace(/\s+/g, '-');
+  const killGraceMs = cliAgent.getKillGraceMs();
+
   const { source: mcpServersSource, mcpServers } = getMcpServersForSession({
     logInfo,
     getErrorMessage,
-    invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON for temp ACP runner; falling back to Gemini settings mcpServers',
-    settingsReadFailMessage:
-      'Failed to read Gemini settings mcpServers for temp ACP runner; falling back to empty array',
-    settingsReadFailAfterInvalidEnvMessage:
-      'Failed to read Gemini settings mcpServers after invalid env override; using empty array',
+    invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON for temp ACP runner; using empty mcpServers array',
     logDetails: { scheduleId },
   });
   const mcpServerNames = mcpServers
@@ -60,7 +61,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
     cwd,
   });
 
-  logInfo('Scheduler temp Gemini ACP process started', {
+  logInfo(`Scheduler temp ${agentDisplayName} ACP process started`, {
     scheduleId,
     pid: tempProcess.pid,
     command,
@@ -89,7 +90,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
           return;
         }
         settled = true;
-        logInfo('Scheduler temp Gemini process termination finalized', {
+        logInfo(`Scheduler temp ${agentDisplayName} process termination finalized`, {
           scheduleId,
           pid: tempProcess.pid,
           reason,
@@ -99,10 +100,10 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
 
       tempProcess.once('exit', () => finalize('exit'));
 
-      logInfo('Scheduler temp Gemini process SIGTERM', {
+      logInfo(`Scheduler temp ${agentDisplayName} process SIGTERM`, {
         scheduleId,
         pid: tempProcess.pid,
-        graceMs: GEMINI_KILL_GRACE_MS,
+        graceMs: killGraceMs,
       });
       tempProcess.kill('SIGTERM');
 
@@ -113,14 +114,14 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
             return;
           }
 
-          logInfo('Scheduler temp Gemini process SIGKILL escalation', {
+          logInfo(`Scheduler temp ${agentDisplayName} process SIGKILL escalation`, {
             scheduleId,
             pid: tempProcess.pid,
           });
           tempProcess.kill('SIGKILL');
           finalize('sigkill');
         },
-        Math.max(0, GEMINI_KILL_GRACE_MS),
+        Math.max(0, killGraceMs),
       );
     });
   };
@@ -160,7 +161,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
       await terminateProcessGracefully();
     }
 
-    logInfo('Scheduler temp Gemini ACP process cleanup complete', {
+    logInfo(`Scheduler temp ${agentDisplayName} ACP process cleanup complete`, {
       scheduleId,
       pid: tempProcess.pid,
     });
@@ -171,13 +172,13 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
     appendTempStderrTail(rawText);
     const text = rawText.trim();
     if (text) {
-      console.error(`[gemini:scheduler:${scheduleId}] ${text}`);
+      console.error(`[${stderrPrefixToken}:scheduler:${scheduleId}] ${text}`);
     }
     tempCollector?.onActivity();
   });
 
   tempProcess.on('error', (error: Error) => {
-    logInfo('Scheduler temp Gemini ACP process error', {
+    logInfo(`Scheduler temp ${agentDisplayName} ACP process error`, {
       scheduleId,
       pid: tempProcess.pid,
       error: error.message,
@@ -185,7 +186,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
   });
 
   tempProcess.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
-    logInfo('Scheduler temp Gemini ACP process exited', {
+    logInfo(`Scheduler temp ${agentDisplayName} ACP process exited`, {
       scheduleId,
       pid: tempProcess.pid,
       code,
@@ -273,7 +274,9 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
             }
           } catch (_) {}
 
-          await settle(() => reject(new Error(`Scheduler Gemini ACP produced no output for ${noOutputTimeoutMs}ms`)));
+          await settle(() =>
+            reject(new Error(`Scheduler ${agentDisplayName} ACP produced no output for ${noOutputTimeoutMs}ms`)),
+          );
         }, noOutputTimeoutMs);
       };
 
@@ -284,7 +287,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
           }
         } catch (_) {}
 
-        await settle(() => reject(new Error(`Scheduler Gemini ACP timed out after ${timeoutMs}ms`)));
+        await settle(() => reject(new Error(`Scheduler ${agentDisplayName} ACP timed out after ${timeoutMs}ms`)));
       }, timeoutMs);
 
       tempCollector = {
@@ -313,7 +316,7 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
       tempConnection
         .prompt({
           sessionId: tempSessionId,
-          prompt: [{ type: 'text', text: promptForGemini }],
+          prompt: [{ type: 'text', text: promptForAgent }],
         })
         .then(async (result: any) => {
           if (ACP_DEBUG_STREAM) {
@@ -327,18 +330,18 @@ export async function runPromptWithTempAcp(options: TempAcpRunnerOptions): Promi
             });
           }
           if (result?.stopReason === 'cancelled' && !response) {
-            await settle(() => reject(new Error('Scheduler Gemini ACP prompt was cancelled')));
+            await settle(() => reject(new Error(`Scheduler ${agentDisplayName} ACP prompt was cancelled`)));
             return;
           }
 
           await settle(() => resolve(response || 'No response received.'));
         })
         .catch(async (error: any) => {
-          await settle(() => reject(new Error(error?.message || 'Scheduler Gemini ACP prompt failed')));
+          await settle(() => reject(new Error(error?.message || `Scheduler ${agentDisplayName} ACP prompt failed`)));
         });
     });
   } catch (error: any) {
-    logInfo('Scheduler temporary Gemini ACP run failed', {
+    logInfo(`Scheduler temporary ${agentDisplayName} ACP run failed`, {
       scheduleId,
       error: getErrorMessage(error),
       stderrTail: tempStderrTail || '(empty)',

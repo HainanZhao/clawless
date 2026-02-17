@@ -2,22 +2,19 @@ import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process';
 import { Readable, Writable } from 'node:stream';
 import * as acp from '@agentclientprotocol/sdk';
 import { getMcpServersForSession } from './mcpServerHelpers.js';
+import type { BaseCliAgent } from '../core/agents/index.js';
 
 type LogInfoFn = (message: string, details?: unknown) => void;
 type GetErrorMessageFn = (error: unknown, fallbackMessage?: string) => string;
 
 type CreateAcpRuntimeParams = {
-  geminiCommand: string;
-  includeDirectories: string[];
-  geminiApprovalMode: string;
-  geminiModel: string;
+  cliAgent: BaseCliAgent;
   acpPermissionStrategy: string;
   acpStreamStdout: boolean;
   acpDebugStream: boolean;
   acpTimeoutMs: number;
   acpNoOutputTimeoutMs: number;
   acpPrewarmRetryMs: number;
-  geminiKillGraceMs: number;
   stderrTailMaxChars: number;
   buildPromptWithMemory: (userPrompt: string) => Promise<string>;
   ensureMemoryFile: () => void;
@@ -28,17 +25,13 @@ type CreateAcpRuntimeParams = {
 };
 
 export function createAcpRuntime({
-  geminiCommand,
-  includeDirectories,
-  geminiApprovalMode,
-  geminiModel,
+  cliAgent,
   acpPermissionStrategy,
   acpStreamStdout,
   acpDebugStream,
   acpTimeoutMs,
   acpNoOutputTimeoutMs,
   acpPrewarmRetryMs,
-  geminiKillGraceMs,
   stderrTailMaxChars,
   buildPromptWithMemory,
   ensureMemoryFile,
@@ -54,7 +47,13 @@ export function createAcpRuntime({
     ? defaultAcpPrewarmMaxRetries
     : parsedAcpPrewarmMaxRetries;
 
-  let geminiProcess: any = null;
+  const agentCommand = cliAgent.getCommand();
+  const agentDisplayName = cliAgent.getDisplayName();
+  const commandToken = agentCommand.split(/[\\/]/).pop() || agentCommand;
+  const stderrPrefixToken = commandToken.toLowerCase().replace(/\s+/g, '-');
+  const killGraceMs = cliAgent.getKillGraceMs();
+
+  let agentProcess: any = null;
   let acpConnection: any = null;
   let acpSessionId: any = null;
   let acpInitPromise: Promise<void> | null = null;
@@ -62,12 +61,12 @@ export function createAcpRuntime({
   let manualAbortRequested = false;
   let acpPrewarmRetryTimer: NodeJS.Timeout | null = null;
   let acpPrewarmRetryAttempts = 0;
-  let geminiStderrTail = '';
+  let agentStderrTail = '';
 
-  const appendGeminiStderrTail = (text: string) => {
-    geminiStderrTail = `${geminiStderrTail}${text}`;
-    if (geminiStderrTail.length > stderrTailMaxChars) {
-      geminiStderrTail = geminiStderrTail.slice(-stderrTailMaxChars);
+  const appendAgentStderrTail = (text: string) => {
+    agentStderrTail = `${agentStderrTail}${text}`;
+    if (agentStderrTail.length > stderrTailMaxChars) {
+      agentStderrTail = agentStderrTail.slice(-stderrTailMaxChars);
     }
   };
 
@@ -89,7 +88,7 @@ export function createAcpRuntime({
           return;
         }
         settled = true;
-        logInfo('Gemini process termination finalized', {
+        logInfo(`${agentDisplayName} process termination finalized`, {
           processLabel,
           reason,
           pid: childProcess.pid,
@@ -100,10 +99,10 @@ export function createAcpRuntime({
 
       childProcess.once('exit', () => finalize('exit'));
 
-      logInfo('Sending SIGTERM to Gemini process', {
+      logInfo(`Sending SIGTERM to ${agentDisplayName} process`, {
         processLabel,
         pid: childProcess.pid,
-        graceMs: geminiKillGraceMs,
+        graceMs: killGraceMs,
         ...details,
       });
       childProcess.kill('SIGTERM');
@@ -115,7 +114,7 @@ export function createAcpRuntime({
             return;
           }
 
-          logInfo('Escalating Gemini process termination to SIGKILL', {
+          logInfo(`Escalating ${agentDisplayName} process termination to SIGKILL`, {
             processLabel,
             pid: childProcess.pid,
             ...details,
@@ -124,13 +123,13 @@ export function createAcpRuntime({
           childProcess.kill('SIGKILL');
           finalize('sigkill');
         },
-        Math.max(0, geminiKillGraceMs),
+        Math.max(0, killGraceMs),
       );
     });
   };
 
   const hasHealthyAcpRuntime = () => {
-    return Boolean(acpConnection && acpSessionId && geminiProcess && !geminiProcess.killed);
+    return Boolean(acpConnection && acpSessionId && agentProcess && !agentProcess.killed);
   };
 
   const hasActiveAcpPrompt = () => {
@@ -146,15 +145,15 @@ export function createAcpRuntime({
   };
 
   const shutdownAcpRuntime = async (reason: string) => {
-    const processToStop = geminiProcess;
+    const processToStop = agentProcess;
     const runtimeSessionId = acpSessionId;
 
     activePromptCollector = null;
     acpConnection = null;
     acpSessionId = null;
     acpInitPromise = null;
-    geminiProcess = null;
-    geminiStderrTail = '';
+    agentProcess = null;
+    agentStderrTail = '';
 
     if (processToStop && !processToStop.killed && processToStop.exitCode === null) {
       await terminateProcessGracefully(processToStop, 'main-acp-runtime', {
@@ -164,23 +163,8 @@ export function createAcpRuntime({
     }
   };
 
-  const buildGeminiAcpArgs = () => {
-    const args = ['--experimental-acp'];
-
-    const includeDirectorySet = new Set(includeDirectories);
-    for (const includeDirectory of includeDirectorySet) {
-      args.push('--include-directories', includeDirectory);
-    }
-
-    if (geminiApprovalMode) {
-      args.push('--approval-mode', geminiApprovalMode);
-    }
-
-    if (geminiModel) {
-      args.push('--model', geminiModel);
-    }
-
-    return args;
+  const buildAgentAcpArgs = () => {
+    return cliAgent.buildAcpArgs();
   };
 
   const acpClient = {
@@ -222,7 +206,7 @@ export function createAcpRuntime({
   const ensureAcpSession = async () => {
     ensureMemoryFile();
 
-    if (acpConnection && acpSessionId && geminiProcess && !geminiProcess.killed) {
+    if (acpConnection && acpSessionId && agentProcess && !agentProcess.killed) {
       return;
     }
 
@@ -232,14 +216,11 @@ export function createAcpRuntime({
     }
 
     acpInitPromise = (async () => {
-      const args = buildGeminiAcpArgs();
+      const args = buildAgentAcpArgs();
       const { source: mcpServersSource, mcpServers } = getMcpServersForSession({
         logInfo,
         getErrorMessage,
-        invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON; falling back to Gemini settings mcpServers',
-        settingsReadFailMessage: 'Failed to read Gemini settings mcpServers; falling back to empty array',
-        settingsReadFailAfterInvalidEnvMessage:
-          'Failed to read Gemini settings mcpServers after invalid env override; using empty array',
+        invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON; using empty mcpServers array',
       });
       const mcpServerNames = mcpServers
         .map((server) => {
@@ -251,40 +232,40 @@ export function createAcpRuntime({
         })
         .filter((name) => name.length > 0);
 
-      logInfo('Starting Gemini ACP process', {
-        command: geminiCommand,
+      logInfo(`Starting ${agentDisplayName} ACP process`, {
+        command: agentCommand,
         args,
       });
-      geminiStderrTail = '';
-      geminiProcess = spawn(geminiCommand, args, {
+      agentStderrTail = '';
+      agentProcess = spawn(agentCommand, args, {
         stdio: ['pipe', 'pipe', 'pipe'],
         cwd: process.cwd(),
       });
 
-      geminiProcess.stderr.on('data', (chunk: Buffer) => {
+      agentProcess.stderr.on('data', (chunk: Buffer) => {
         const rawText = chunk.toString();
-        appendGeminiStderrTail(rawText);
+        appendAgentStderrTail(rawText);
         const text = rawText.trim();
         if (text) {
-          console.error(`[gemini] ${text}`);
+          console.error(`[${stderrPrefixToken}] ${text}`);
         }
         if (activePromptCollector) {
           activePromptCollector.onActivity();
         }
       });
 
-      geminiProcess.on('error', (error: Error) => {
-        console.error('Gemini ACP process error:', error.message);
+      agentProcess.on('error', (error: Error) => {
+        console.error(`${agentDisplayName} ACP process error:`, error.message);
         resetAcpRuntime();
       });
 
-      geminiProcess.on('close', (code: number, signal: string) => {
-        console.error(`Gemini ACP process closed (code=${code}, signal=${signal})`);
+      agentProcess.on('close', (code: number, signal: string) => {
+        console.error(`${agentDisplayName} ACP process closed (code=${code}, signal=${signal})`);
         resetAcpRuntime();
       });
 
-      const input = Writable.toWeb(geminiProcess.stdin) as unknown as WritableStream<Uint8Array>;
-      const output = Readable.toWeb(geminiProcess.stdout) as unknown as ReadableStream<Uint8Array>;
+      const input = Writable.toWeb(agentProcess.stdin) as unknown as WritableStream<Uint8Array>;
+      const output = Readable.toWeb(agentProcess.stdout) as unknown as ReadableStream<Uint8Array>;
       const stream = acp.ndJsonStream(input, output);
 
       acpConnection = new acp.ClientSideConnection(() => acpClient, stream);
@@ -312,12 +293,12 @@ export function createAcpRuntime({
         const baseMessage = getErrorMessage(error);
         const isInternalError = baseMessage.includes('Internal error');
         const hint = isInternalError
-          ? 'Gemini ACP newSession returned Internal error. This is often caused by a local MCP server or skill initialization issue. Try launching `gemini` directly and checking MCP/skills diagnostics.'
+          ? `${agentDisplayName} ACP newSession returned Internal error. This is often caused by a local MCP server or skill initialization issue. Try launching the CLI directly and checking MCP/skills diagnostics.`
           : '';
 
         logInfo('ACP initialization failed', {
           error: baseMessage,
-          stderrTail: geminiStderrTail || '(empty)',
+          stderrTail: agentStderrTail || '(empty)',
         });
 
         resetAcpRuntime();
@@ -346,14 +327,14 @@ export function createAcpRuntime({
     ensureAcpSession()
       .then(() => {
         acpPrewarmRetryAttempts = 0;
-        logInfo('Gemini ACP prewarm complete');
+        logInfo(`${agentDisplayName} ACP prewarm complete`);
       })
       .catch((error: unknown) => {
-        logInfo('Gemini ACP prewarm failed', { error: getErrorMessage(error) });
+        logInfo(`${agentDisplayName} ACP prewarm failed`, { error: getErrorMessage(error) });
 
         acpPrewarmRetryAttempts += 1;
         if (acpPrewarmMaxRetries > 0 && acpPrewarmRetryAttempts >= acpPrewarmMaxRetries) {
-          logInfo('Gemini ACP prewarm retries exhausted; stopping automatic retries', {
+          logInfo(`${agentDisplayName} ACP prewarm retries exhausted; stopping automatic retries`, {
             attempts: acpPrewarmRetryAttempts,
             maxRetries: acpPrewarmMaxRetries,
           });
@@ -443,13 +424,13 @@ export function createAcpRuntime({
 
         noOutputTimeout = setTimeout(async () => {
           await cancelActiveAcpPrompt();
-          failOnce(new Error(`Gemini ACP produced no output for ${acpNoOutputTimeoutMs}ms`));
+          failOnce(new Error(`${agentDisplayName} ACP produced no output for ${acpNoOutputTimeoutMs}ms`));
         }, acpNoOutputTimeoutMs);
       };
 
       const overallTimeout = setTimeout(async () => {
         await cancelActiveAcpPrompt();
-        failOnce(new Error(`Gemini ACP timed out after ${acpTimeoutMs}ms`));
+        failOnce(new Error(`${agentDisplayName} ACP timed out after ${acpTimeoutMs}ms`));
       }, acpTimeoutMs);
 
       activePromptCollector = {
@@ -503,7 +484,9 @@ export function createAcpRuntime({
           if (result?.stopReason === 'cancelled' && !fullResponse) {
             failOnce(
               new Error(
-                manualAbortRequested ? 'Gemini ACP prompt was aborted by user' : 'Gemini ACP prompt was cancelled',
+                manualAbortRequested
+                  ? `${agentDisplayName} ACP prompt was aborted by user`
+                  : `${agentDisplayName} ACP prompt was cancelled`,
               ),
             );
             return;
@@ -511,13 +494,13 @@ export function createAcpRuntime({
           resolveOnce(fullResponse || 'No response received.');
         })
         .catch((error: any) => {
-          failOnce(new Error(error?.message || 'Gemini ACP prompt failed'));
+          failOnce(new Error(error?.message || `${agentDisplayName} ACP prompt failed`));
         });
     });
   };
 
   return {
-    buildGeminiAcpArgs,
+    buildAgentAcpArgs,
     runAcpPrompt,
     scheduleAcpPrewarm,
     shutdownAcpRuntime,
@@ -528,7 +511,7 @@ export function createAcpRuntime({
     },
     getRuntimeState: () => ({
       acpSessionReady: Boolean(acpSessionId),
-      geminiProcessRunning: Boolean(geminiProcess && !geminiProcess.killed),
+      agentProcessRunning: Boolean(agentProcess && !agentProcess.killed),
     }),
   };
 }

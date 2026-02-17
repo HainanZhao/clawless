@@ -29,7 +29,7 @@ Clawless memory is split into three independent stores:
 
 ### 1) On startup
 
-- Ensures bridge home directory exists (`AGENT_BRIDGE_HOME`, default `~/.clawless`)
+- Ensures bridge home directory exists (`CLAWLESS_HOME`, default `~/.clawless`)
 - Ensures `MEMORY.md` exists
 - If conversation history is enabled:
    - Ensures `conversation-history.jsonl` file exists

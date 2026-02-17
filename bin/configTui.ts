@@ -113,32 +113,33 @@ const CONFIG_FIELDS: ConfigField[] = [
     order: 22,
   },
   {
-    key: 'geminiCommand',
-    label: 'geminiCommand',
-    description: 'Gemini CLI executable command/path.',
-    valueType: 'string',
-    isRequired: () => false,
+    key: 'cliAgent',
+    label: 'cliAgent',
+    description: 'CLI agent backend to run.',
+    valueType: 'enum',
+    enumValues: ['gemini', 'opencode'],
+    isRequired: () => true,
     isVisible: () => true,
-    order: 23,
+    order: 0,
   },
   {
-    key: 'geminiApprovalMode',
-    label: 'geminiApprovalMode',
-    description: 'Gemini approval behavior for tool/edit actions.',
+    key: 'cliAgentApprovalMode',
+    label: 'cliAgentApprovalMode',
+    description: 'CLI agent approval behavior for tool/edit actions.',
     valueType: 'enum',
     enumValues: ['default', 'auto_edit', 'yolo', 'plan'],
     isRequired: () => false,
     isVisible: () => true,
-    order: 24,
+    order: 25,
   },
   {
-    key: 'geminiModel',
-    label: 'geminiModel',
-    description: 'Optional Gemini model override.',
+    key: 'cliAgentModel',
+    label: 'cliAgentModel',
+    description: 'Optional CLI agent model override.',
     valueType: 'string',
     isRequired: () => false,
     isVisible: () => true,
-    order: 25,
+    order: 26,
   },
   {
     key: 'acpPermissionStrategy',
@@ -151,26 +152,26 @@ const CONFIG_FIELDS: ConfigField[] = [
     order: 26,
   },
   {
-    key: 'geminiTimeoutMs',
-    label: 'geminiTimeoutMs',
-    description: 'Hard timeout for one Gemini run in ms.',
+    key: 'cliAgentTimeoutMs',
+    label: 'cliAgentTimeoutMs',
+    description: 'Hard timeout for one CLI agent run in ms.',
     valueType: 'number',
     isRequired: () => false,
     isVisible: () => true,
     order: 27,
   },
   {
-    key: 'geminiNoOutputTimeoutMs',
-    label: 'geminiNoOutputTimeoutMs',
-    description: 'Idle timeout when Gemini emits no output in ms.',
+    key: 'cliAgentNoOutputTimeoutMs',
+    label: 'cliAgentNoOutputTimeoutMs',
+    description: 'Idle timeout when CLI agent emits no output in ms.',
     valueType: 'number',
     isRequired: () => false,
     isVisible: () => true,
     order: 28,
   },
   {
-    key: 'geminiKillGraceMs',
-    label: 'geminiKillGraceMs',
+    key: 'cliAgentKillGraceMs',
+    label: 'cliAgentKillGraceMs',
     description: 'Grace period after terminate before force kill in ms.',
     valueType: 'number',
     isRequired: () => false,
@@ -278,8 +279,8 @@ const CONFIG_FIELDS: ConfigField[] = [
     order: 40,
   },
   {
-    key: 'agentBridgeHome',
-    label: 'agentBridgeHome',
+    key: 'clawlessHome',
+    label: 'clawlessHome',
     description: 'Base directory for runtime state files.',
     valueType: 'string',
     isRequired: () => false,
@@ -502,6 +503,9 @@ function getVisibleFields(config: Record<string, unknown>): ConfigField[] {
     const rightRequired = right.isRequired(config) ? 0 : 1;
     if (leftRequired !== rightRequired) {
       return leftRequired - rightRequired;
+    }
+    if (leftRequired === 1) {
+      return left.key.localeCompare(right.key);
     }
     return left.order - right.order;
   });

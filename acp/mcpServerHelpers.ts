@@ -1,8 +1,4 @@
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-
-export type McpServersSource = 'default-empty' | 'gemini-settings' | 'env-override';
+export type McpServersSource = 'default-empty' | 'env-override';
 
 export type McpServersResult = {
   source: McpServersSource;
@@ -96,61 +92,20 @@ function normalizeMcpServers(value: unknown): unknown[] {
   return [];
 }
 
-function loadFromGeminiSettings(
-  logInfo: McpServersLogger,
-  getErrorMessage: McpServersErrorFormatter,
-  failureMessage: string,
-  logDetails?: Record<string, unknown>,
-): McpServersResult {
-  const settingsPath = path.join(os.homedir(), '.gemini', 'settings.json');
-
-  if (!fs.existsSync(settingsPath)) {
-    return {
-      source: 'default-empty',
-      mcpServers: [],
-    };
-  }
-
-  try {
-    const parsed = JSON.parse(fs.readFileSync(settingsPath, 'utf8')) as { mcpServers?: unknown };
-    return {
-      source: 'gemini-settings',
-      mcpServers: normalizeMcpServers(parsed?.mcpServers),
-    };
-  } catch (error) {
-    logInfo(failureMessage, {
-      settingsPath,
-      error: getErrorMessage(error),
-      ...logDetails,
-    });
-
-    return {
-      source: 'default-empty',
-      mcpServers: [],
-    };
-  }
-}
-
 export function getMcpServersForSession(options: {
   logInfo: McpServersLogger;
   getErrorMessage: McpServersErrorFormatter;
   invalidEnvMessage: string;
-  settingsReadFailMessage: string;
-  settingsReadFailAfterInvalidEnvMessage: string;
   logDetails?: Record<string, unknown>;
 }): McpServersResult {
-  const {
-    logInfo,
-    getErrorMessage,
-    invalidEnvMessage,
-    settingsReadFailMessage,
-    settingsReadFailAfterInvalidEnvMessage,
-    logDetails,
-  } = options;
+  const { logInfo, getErrorMessage, invalidEnvMessage, logDetails } = options;
 
   const raw = process.env.ACP_MCP_SERVERS_JSON;
   if (!raw) {
-    return loadFromGeminiSettings(logInfo, getErrorMessage, settingsReadFailMessage, logDetails);
+    return {
+      source: 'default-empty',
+      mcpServers: [],
+    };
   }
 
   try {
@@ -164,6 +119,9 @@ export function getMcpServersForSession(options: {
       ...logDetails,
     });
 
-    return loadFromGeminiSettings(logInfo, getErrorMessage, settingsReadFailAfterInvalidEnvMessage, logDetails);
+    return {
+      source: 'default-empty',
+      mcpServers: [],
+    };
   }
 }

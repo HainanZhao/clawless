@@ -3,8 +3,8 @@ import { getErrorMessage } from './error.js';
 
 type LogInfoFn = (message: string, details?: unknown) => void;
 
-export function ensureBridgeHomeDirectory(bridgeHomePath: string) {
-  fs.mkdirSync(bridgeHomePath, { recursive: true });
+export function ensureClawlessHomeDirectory(clawlessHomePath: string) {
+  fs.mkdirSync(clawlessHomePath, { recursive: true });
 }
 
 export function resolveChatId(value: unknown) {

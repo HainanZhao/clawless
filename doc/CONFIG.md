@@ -14,13 +14,13 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `timezone` | `UTC` | Timezone used by scheduler cron execution. |
 | `typingIntervalMs` | `4000` | Typing indicator refresh interval while processing. |
 | `streamUpdateIntervalMs` | `5000` | Minimum interval between progressive streaming message updates. |
-| `geminiCommand` | `gemini` | Agent CLI executable name/path. |
-| `geminiApprovalMode` | `yolo` | Gemini approval mode (`default`, `auto_edit`, `yolo`, `plan`). |
-| `geminiModel` | `""` | Optional Gemini model override. |
+| `cliAgent` | `gemini` | CLI agent type to use (`gemini` or `opencode`). |
+| `cliAgentApprovalMode` | `yolo` | Agent approval mode (`default`, `auto_edit`, `yolo`, `plan`). |
+| `cliAgentModel` | `""` | Optional model override for the agent. |
+| `cliAgentTimeoutMs` | `1200000` | Hard timeout for one agent run (ms). |
+| `cliAgentNoOutputTimeoutMs` | `300000` | Idle timeout when no output is produced (ms). |
+| `cliAgentKillGraceMs` | `5000` | Grace period before forced process kill after termination (ms). |
 | `acpPermissionStrategy` | `allow_once` | Auto selection strategy for ACP permission prompts. |
-| `geminiTimeoutMs` | `1200000` | Hard timeout for one agent run (ms). |
-| `geminiNoOutputTimeoutMs` | `300000` | Idle timeout when no output is produced (ms). |
-| `geminiKillGraceMs` | `5000` | Grace period before forced process kill after termination (ms). |
 | `acpPrewarmRetryMs` | `30000` | Delay before retrying ACP prewarm after failure (ms). |
 | `acpPrewarmMaxRetries` | `10` | Max prewarm retries (`0` = unlimited). |
 | `acpMcpServersJson` | `""` | Optional JSON override for ACP MCP server list. |
@@ -32,7 +32,7 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `callbackPort` | `8788` | Bind port for local callback/API server. |
 | `callbackAuthToken` | `""` | Optional auth token for callback and local API routes. |
 | `callbackMaxBodyBytes` | `65536` | Max accepted callback/API request body size. |
-| `agentBridgeHome` | `~/.clawless` | Base directory for runtime state files. |
+| `clawlessHome` | `~/.clawless` | Base directory for runtime state files. |
 | `memoryFilePath` | `~/.clawless/MEMORY.md` | Persistent memory note file injected into prompt context. |
 | `memoryMaxChars` | `12000` | Max memory-file characters included in prompt context. |
 | `conversationHistoryEnabled` | `true` | Enable/disable conversation history tracking. |
@@ -46,3 +46,20 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `conversationSemanticMaxEntries` | `1000` | Max retained semantic entries (FIFO). |
 | `conversationSemanticMaxCharsPerEntry` | `4000` | Max chars per entry used for lexical recall indexing. |
 | `schedulesFilePath` | `~/.clawless/schedules.json` | Scheduler persistence file path. |
+
+## CLI Agent Selection
+
+To switch between different CLI agents (e.g., Gemini CLI, OpenCode), set the `cliAgent` configuration key:
+
+```json
+{
+  "cliAgent": "opencode",
+  "cliAgentApprovalMode": "yolo"
+}
+```
+
+Supported agents:
+- `gemini` - Google Gemini CLI (default)
+- `opencode` - OpenCode CLI agent
+
+The system will automatically validate that the selected agent is installed and executable at startup.

@@ -4,7 +4,7 @@ import { getErrorMessage } from '../utils/error.js';
 export interface ScheduledJobHandlerDeps {
   logInfo: (message: string, details?: unknown) => void;
   buildPromptWithMemory: (userPrompt: string) => Promise<string>;
-  runScheduledPromptWithTempAcp: (promptForGemini: string, scheduleId: string) => Promise<string>;
+  runScheduledPromptWithTempAcp: (promptForAgent: string, scheduleId: string) => Promise<string>;
   resolveTargetChatId: () => string | null;
   sendTextToChat: (chatId: string | number, text: string) => Promise<void>;
   normalizeOutgoingText: (text: unknown) => string;
@@ -24,13 +24,13 @@ export function createScheduledJobHandler(deps: ScheduledJobHandlerDeps) {
     logInfo('Executing scheduled job', { scheduleId: schedule.id, message: schedule.message });
 
     try {
-      const promptForGemini = await buildPromptWithMemory(schedule.message);
-      logInfo('Scheduler prompt payload sent to Gemini', {
+      const promptForAgent = await buildPromptWithMemory(schedule.message);
+      logInfo('Scheduler prompt payload sent to agent', {
         scheduleId: schedule.id,
-        prompt: promptForGemini,
+        prompt: promptForAgent,
       });
 
-      const response = await runScheduledPromptWithTempAcp(promptForGemini, schedule.id);
+      const response = await runScheduledPromptWithTempAcp(promptForAgent, schedule.id);
 
       const targetChatId = resolveTargetChatId();
       if (targetChatId) {
