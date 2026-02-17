@@ -6,7 +6,7 @@ This document explains how Clawless memory works end-to-end: what is stored, whe
 
 - Preserve useful conversational context across runs
 - Keep prompt context bounded and relevant
-- Support semantic retrieval with local embeddings
+- Support semantic retrieval with local lexical ranking
 - Stay local-first (no external memory service required)
 
 ## Memory Components
@@ -21,9 +21,9 @@ Clawless memory is split into three independent stores:
    - Path default: `~/.clawless/conversation-history.jsonl`
    - Purpose: line-delimited JSON (JSONL) chat transcript entries used for recap
 
-3. **Semantic embedding store**
+3. **Semantic recall store**
    - Path default: `~/.clawless/conversation-semantic-memory.db`
-   - Purpose: SQLite-backed per-entry embedding vectors for semantic recall ranking
+   - Purpose: SQLite-backed per-entry lexical index for semantic recall ranking
 
 ## Runtime Flow
 
@@ -61,17 +61,17 @@ Prompt context is built in this order:
 ## Persistence Model
 
 - Conversation history uses **JSONL** text storage for easy inspection/debugging.
-- Semantic storage uses **SQLite** for embeddings and vector search metadata.
-- Semantic retrieval uses the **sqlite-vec extension** for SQLite KNN vector search.
+- Semantic storage uses **SQLite (sql.js/WASM)** for lexical indexing and retrieval.
+- Semantic retrieval uses **SQLite FTS5 + bm25** ranking scoped by `chat_id`.
 - Retention is enforced by capped JSONL history entries and semantic row pruning.
 
 ## How Recap Selection Works
 
 ### Semantic path (on demand)
 
-- Embeds requested input with `node-llama-cpp`
-- Runs KNN search in `sqlite-vec`
-- Filters by `chat_id`
+- Tokenizes requested input into an FTS query
+- Runs lexical ranking with `bm25` in SQLite FTS5
+- Scopes results by `chat_id`
 - Returns `topK` entries in chronological order and recap format
 
 ## Bounded Growth and Scalability Controls
@@ -86,9 +86,8 @@ The system is intentionally capped in multiple places:
 
 ### Semantic store controls
 
-- `CONVERSATION_SEMANTIC_MAX_ENTRIES` (default `1000`): max vectorized entries (FIFO rotation)
-- `CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY` (default `4000`): max chars used to build embedding input
-- `CONVERSATION_SEMANTIC_TIMEOUT_MS` (default `15000`): timeout for embedding init/query operations
+- `CONVERSATION_SEMANTIC_MAX_ENTRIES` (default `1000`): max indexed entries (FIFO rotation)
+- `CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY` (default `4000`): max chars used for lexical recall indexing
 
 ### Recap scope controls
 
@@ -116,15 +115,14 @@ CONVERSATION_SEMANTIC_RECALL_ENABLED=false
 ## Operational Notes
 
 - Conversation history is intentionally human-readable and easy to inspect with standard text tools.
-- Semantic ranking now runs in SQLite via `sqlite-vec` (`MATCH` + `k`) and is then filtered by chat.
-- For larger scale beyond single-node SQLite, migrate to a dedicated vector DB.
+- Semantic ranking now runs in SQLite FTS5 via `MATCH` + `bm25` and is filtered by chat.
+- For larger scale beyond single-node SQLite, migrate to a dedicated search database.
 
 ## Troubleshooting
 
 1. **No semantic recap appears**
    - Verify `CONVERSATION_SEMANTIC_RECALL_ENABLED=true`
-   - Check semantic model path and model availability
-   - Check logs for semantic timeout/indexing failures
+   - Check logs for semantic indexing/query failures
 
 2. **History recap is always generic**
    - Increase `CONVERSATION_HISTORY_RECAP_TOP_K` if needed
@@ -138,4 +136,4 @@ CONVERSATION_SEMANTIC_RECALL_ENABLED=false
 - `index.ts` (runtime orchestration + prompt building)
 - `utils/memory.ts` (operator memory file handling)
 - `utils/conversationHistory.ts` (history persistence + recap formatting)
-- `utils/semanticConversationMemory.ts` (semantic vector store + retrieval)
+- `utils/semanticConversationMemory.ts` (semantic lexical store + retrieval)

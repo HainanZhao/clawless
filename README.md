@@ -40,7 +40,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 - 🔒 **Privacy**: Runs on your hardware, you control data flow
 - 💾 **Persistent Context**: Maintains local session unlike standard API calls
 - 🧠 **Conversation History (Local JSONL)**: Persists chat turns in a human-readable local JSONL file with bounded retention
-- 🧬 **Semantic Recall (On-Demand)**: Uses local `node-llama-cpp` embeddings + SQLite/`sqlite-vec` and can be queried via local API when extra context is needed
+- 🧬 **Semantic Recall (On-Demand)**: Uses local SQLite FTS lexical ranking and can be queried via local API when extra context is needed
 - 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
 - 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API

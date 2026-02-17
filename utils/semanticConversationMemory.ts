@@ -1,7 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import Database from 'better-sqlite3';
 import { getErrorMessage } from './error.js';
 import type { ConversationEntry } from './conversationHistory.js';
 
@@ -10,10 +9,8 @@ type LogInfoFn = (message: string, details?: unknown) => void;
 export interface SemanticConversationMemoryConfig {
   enabled: boolean;
   storePath: string;
-  modelPath: string;
   maxEntries: number;
   maxCharsPerEntry: number;
-  timeoutMs: number;
 }
 
 type SemanticRow = {
@@ -24,60 +21,14 @@ type SemanticRow = {
   platform: string;
 };
 
-type SemanticEntryForTriplet = {
-  seq: number;
-  user_message: string;
-  bot_response: string;
-};
-
-const VECTOR_TABLE_NAME = 'semantic_memory_vectors';
-const META_TABLE_NAME = 'semantic_memory_meta';
-
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number, label: string): Promise<T> {
-  if (timeoutMs <= 0) {
-    return promise;
-  }
-
-  return new Promise<T>((resolve, reject) => {
-    const timeout = setTimeout(() => {
-      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
-    }, timeoutMs);
-
-    promise
-      .then((value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      })
-      .catch((error) => {
-        clearTimeout(timeout);
-        reject(error);
-      });
-  });
-}
-
-function normalizeVector(vector: number[]): number[] {
-  if (vector.length === 0) {
-    return vector;
-  }
-
-  let sumSquares = 0;
-  for (const value of vector) {
-    sumSquares += value * value;
-  }
-
-  if (sumSquares <= 0) {
-    return vector;
-  }
-
-  const norm = Math.sqrt(sumSquares);
-  return vector.map((value) => Number((value / norm).toFixed(8)));
-}
+const FTS_TABLE_NAME = 'semantic_memory_fts';
+const ENTRIES_TABLE_NAME = 'semantic_memory_entries';
 
 function toEntryId(entry: ConversationEntry): string {
   return `${entry.timestamp}|${entry.chatId}|${entry.platform}`;
 }
 
-function truncateForEmbedding(text: string, maxChars: number): string {
+function truncateForRecall(text: string, maxChars: number): string {
   if (text.length <= maxChars) {
     return text;
   }
@@ -85,16 +36,36 @@ function truncateForEmbedding(text: string, maxChars: number): string {
   return text.slice(0, maxChars);
 }
 
-function isMissingNodeLlamaCppError(error: unknown): boolean {
-  const message = getErrorMessage(error);
-  return (
-    message.includes("Cannot find package 'node-llama-cpp'") || message.includes("Cannot find module 'node-llama-cpp'")
-  );
+function buildRecallText(entry: Pick<ConversationEntry, 'userMessage' | 'botResponse'>, maxChars: number): string {
+  return truncateForRecall(`User: ${entry.userMessage}\nAssistant: ${entry.botResponse}`, maxChars);
 }
 
-function isMissingSqliteVecError(error: unknown): boolean {
-  const message = getErrorMessage(error);
-  return message.includes("Cannot find module 'sqlite-vec'") || message.includes("Cannot find package 'sqlite-vec'");
+function buildFtsQuery(input: string): string {
+  const tokens = input
+    .toLowerCase()
+    .split(/[^\p{L}\p{N}_]+/u)
+    .map((token) => token.trim())
+    .filter((token) => token.length >= 2)
+    .slice(0, 12);
+
+  if (tokens.length === 0) {
+    return '';
+  }
+
+  return Array.from(new Set(tokens)).map((token) => `${token}*`).join(' OR ');
+}
+
+function buildSearchTerms(input: string): string[] {
+  return Array.from(
+    new Set(
+      input
+        .toLowerCase()
+        .split(/[^\p{L}\p{N}_]+/u)
+        .map((token) => token.trim())
+        .filter((token) => token.length >= 2)
+        .slice(0, 12),
+    ),
+  );
 }
 
 function toConversationEntry(row: SemanticRow): ConversationEntry {
@@ -110,12 +81,12 @@ function toConversationEntry(row: SemanticRow): ConversationEntry {
 export class SemanticConversationMemory {
   private readonly config: SemanticConversationMemoryConfig;
   private readonly logInfo: LogInfoFn;
-  private embeddingContextPromise: Promise<any | null> | null = null;
-  private isInitializationLogged = false;
   private runtimeDisabled = false;
   private runtimeDisableLogged = false;
-  private db: Database.Database | null = null;
-  private vectorExtensionLoaded = false;
+  private sqlModulePromise: Promise<any> | null = null;
+  private dbPromise: Promise<any> | null = null;
+  private writeQueue: Promise<void> = Promise.resolve();
+  private ftsAvailable = true;
 
   constructor(config: SemanticConversationMemoryConfig, logInfo: LogInfoFn) {
     this.config = config;
@@ -128,7 +99,6 @@ export class SemanticConversationMemory {
 
   private disableRuntime(reason: string, error?: unknown, action?: string) {
     this.runtimeDisabled = true;
-    this.embeddingContextPromise = null;
 
     if (this.runtimeDisableLogged) {
       return;
@@ -140,116 +110,122 @@ export class SemanticConversationMemory {
       error: error ? getErrorMessage(error) : undefined,
       action:
         action ||
-        'Verify node-llama-cpp/sqlite-vec dependencies and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.',
+        'Verify sql.js/SQLite FTS5 support and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.',
     });
   }
 
-  private ensureVectorExtensionLoaded(db: Database.Database) {
-    if (this.vectorExtensionLoaded) {
-      return;
+  private async getSqlModule() {
+    if (this.sqlModulePromise) {
+      return this.sqlModulePromise;
     }
 
-    try {
-      const require = createRequire(import.meta.url);
-      const sqliteVec = require('sqlite-vec') as { load?: (targetDb: Database.Database) => void };
-      if (typeof sqliteVec?.load !== 'function') {
-        throw new Error('sqlite-vec does not expose load(db)');
+    this.sqlModulePromise = (async () => {
+      const sqlJsModule: any = await import('sql.js');
+      const initSqlJs = sqlJsModule.default ?? sqlJsModule;
+      if (typeof initSqlJs !== 'function') {
+        throw new Error('sql.js does not expose an initializer function');
       }
 
-      sqliteVec.load(db);
-      this.vectorExtensionLoaded = true;
-      this.logInfo('sqlite-vec extension loaded', { storePath: this.config.storePath });
-    } catch (error: any) {
-      const reason = isMissingSqliteVecError(error)
-        ? 'missing sqlite-vec dependency'
-        : 'failed to load sqlite-vec extension';
-      this.disableRuntime(
-        reason,
-        error,
-        "Install 'sqlite-vec' and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.",
-      );
-      throw error;
-    }
+      const require = createRequire(import.meta.url);
+      const wasmPath = require.resolve('sql.js/dist/sql-wasm.wasm');
+      return initSqlJs({
+        locateFile: (file: string) => {
+          if (file === 'sql-wasm.wasm') {
+            return wasmPath;
+          }
+          return file;
+        },
+      });
+    })();
+
+    return this.sqlModulePromise;
   }
 
-  private getDatabase(): Database.Database {
-    if (this.db) {
-      return this.db;
+  private async getDatabase() {
+    if (this.dbPromise) {
+      return this.dbPromise;
     }
 
+    this.dbPromise = (async () => {
+      try {
+        fs.mkdirSync(path.dirname(this.config.storePath), { recursive: true });
+
+        const SQL = await this.getSqlModule();
+        const db = fs.existsSync(this.config.storePath)
+          ? new SQL.Database(fs.readFileSync(this.config.storePath))
+          : new SQL.Database();
+
+        db.run(`
+          CREATE TABLE IF NOT EXISTS ${ENTRIES_TABLE_NAME} (
+            seq INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id TEXT NOT NULL UNIQUE,
+            timestamp TEXT NOT NULL,
+            chat_id TEXT NOT NULL,
+            user_message TEXT NOT NULL,
+            bot_response TEXT NOT NULL,
+            platform TEXT NOT NULL
+          );
+
+          CREATE INDEX IF NOT EXISTS idx_semantic_memory_chat_seq
+            ON ${ENTRIES_TABLE_NAME}(chat_id, seq);
+        `);
+
+        try {
+          db.run(`
+            CREATE VIRTUAL TABLE IF NOT EXISTS ${FTS_TABLE_NAME}
+            USING fts5(
+              seq UNINDEXED,
+              chat_id UNINDEXED,
+              content,
+              tokenize = 'unicode61 remove_diacritics 2'
+            );
+          `);
+          this.ftsAvailable = true;
+        } catch (error: any) {
+          this.ftsAvailable = false;
+          this.logInfo('SQLite FTS5 unavailable; using LIKE fallback for semantic recall', {
+            error: getErrorMessage(error),
+          });
+        }
+
+        this.persistDatabase(db);
+        return db;
+      } catch (error: any) {
+        this.disableRuntime('failed to initialize semantic memory database', error);
+        this.dbPromise = null;
+        throw error;
+      }
+    })();
+
+    return this.dbPromise;
+  }
+
+  private persistDatabase(db: any) {
+    const data = db.export() as Uint8Array;
+    fs.writeFileSync(this.config.storePath, Buffer.from(data));
+  }
+
+  private async queryRows(db: any, sql: string, params: unknown[]): Promise<SemanticRow[]> {
+    const statement = db.prepare(sql);
     try {
-      fs.mkdirSync(path.dirname(this.config.storePath), { recursive: true });
-      const db = new Database(this.config.storePath);
-      db.pragma('journal_mode = WAL');
-      db.pragma('synchronous = NORMAL');
-      db.pragma('temp_store = MEMORY');
-
-      this.ensureVectorExtensionLoaded(db);
-
-      db.exec(`
-        CREATE TABLE IF NOT EXISTS semantic_memory_entries (
-          seq INTEGER PRIMARY KEY AUTOINCREMENT,
-          entry_id TEXT NOT NULL UNIQUE,
-          timestamp TEXT NOT NULL,
-          chat_id TEXT NOT NULL,
-          user_message TEXT NOT NULL,
-          bot_response TEXT NOT NULL,
-          platform TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS ${META_TABLE_NAME} (
-          key TEXT PRIMARY KEY,
-          value TEXT NOT NULL
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_semantic_memory_chat_seq
-          ON semantic_memory_entries(chat_id, seq);
-      `);
-
-      this.db = db;
-      return db;
-    } catch (error: any) {
-      this.disableRuntime('failed to initialize semantic memory database', error);
-      throw error;
+      statement.bind(params);
+      const rows: SemanticRow[] = [];
+      while (statement.step()) {
+        rows.push(statement.getAsObject() as SemanticRow);
+      }
+      return rows;
+    } finally {
+      statement.free();
     }
   }
 
-  private getVectorDimension(db: Database.Database): number | null {
-    const row = db.prepare(`SELECT value FROM ${META_TABLE_NAME} WHERE key = 'vector_dim'`).get() as
-      | { value?: string }
-      | undefined;
-
-    if (!row?.value) {
-      return null;
-    }
-
-    const dimension = Number.parseInt(row.value, 10);
-    return Number.isFinite(dimension) && dimension > 0 ? dimension : null;
-  }
-
-  private ensureVectorTableForDimension(db: Database.Database, dimension: number) {
-    if (!Number.isInteger(dimension) || dimension <= 0) {
-      throw new Error(`Invalid embedding dimension: ${dimension}`);
-    }
-
-    const existingDimension = this.getVectorDimension(db);
-    if (existingDimension && existingDimension !== dimension) {
-      throw new Error(
-        `Embedding dimension mismatch. Existing: ${existingDimension}, current: ${dimension}. ` +
-          'Use a new CONVERSATION_SEMANTIC_STORE_PATH when switching embedding models.',
-      );
-    }
-
-    db.exec(`
-      CREATE VIRTUAL TABLE IF NOT EXISTS ${VECTOR_TABLE_NAME}
-      USING vec0(embedding float[${dimension}]);
-    `);
-
-    if (!existingDimension) {
-      db.prepare(`INSERT OR REPLACE INTO ${META_TABLE_NAME} (key, value) VALUES ('vector_dim', ?)`).run(
-        String(dimension),
-      );
-    }
+  private enqueueWrite<T>(action: () => Promise<T> | T): Promise<T> {
+    const next = this.writeQueue.then(() => action());
+    this.writeQueue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
   }
 
   ensureStoreFile() {
@@ -257,117 +233,9 @@ export class SemanticConversationMemory {
       return;
     }
 
-    try {
-      this.getDatabase();
-    } catch {
+    void this.getDatabase().catch(() => {
       // Runtime disable and logging handled in getDatabase/disableRuntime
-    }
-  }
-
-  private async getEmbeddingContext() {
-    if (!this.isEnabled) {
-      return null;
-    }
-
-    if (this.embeddingContextPromise) {
-      return this.embeddingContextPromise;
-    }
-
-    this.embeddingContextPromise = withTimeout(
-      (async () => {
-        const moduleName = 'node-llama-cpp';
-        const llamaModule: any = await import(moduleName);
-        const getLlama = llamaModule.getLlama ?? llamaModule.default?.getLlama;
-        const resolveModelFile = llamaModule.resolveModelFile ?? llamaModule.default?.resolveModelFile;
-
-        if (typeof getLlama !== 'function') {
-          throw new Error('node-llama-cpp does not expose getLlama()');
-        }
-
-        if (typeof resolveModelFile !== 'function') {
-          throw new Error('node-llama-cpp does not expose resolveModelFile()');
-        }
-
-        const llama = await getLlama({ logLevel: 'error' });
-        const modelDirectory = path.join(path.dirname(this.config.storePath), 'models');
-        const resolvedModelPath = await resolveModelFile(this.config.modelPath, modelDirectory);
-        const model = await llama.loadModel({
-          modelPath: resolvedModelPath,
-        });
-        const embeddingContext = await model.createEmbeddingContext();
-
-        if (!this.isInitializationLogged) {
-          this.logInfo('Semantic memory embedding context initialized', {
-            configuredModelPath: this.config.modelPath,
-            resolvedModelPath,
-            modelDirectory,
-            storePath: this.config.storePath,
-          });
-          this.isInitializationLogged = true;
-        }
-
-        return embeddingContext;
-      })(),
-      this.config.timeoutMs,
-      'Semantic embedding context initialization',
-    ).catch((error) => {
-      this.embeddingContextPromise = null;
-
-      if (isMissingNodeLlamaCppError(error)) {
-        this.disableRuntime(
-          'missing node-llama-cpp dependency',
-          error,
-          "Install 'node-llama-cpp' and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.",
-        );
-        return null;
-      }
-
-      throw error;
     });
-
-    return this.embeddingContextPromise;
-  }
-
-  private async getEmbeddingVector(text: string): Promise<number[]> {
-    const embeddingContext = await this.getEmbeddingContext();
-    if (!embeddingContext) {
-      return [];
-    }
-
-    const result = await withTimeout(
-      embeddingContext.getEmbeddingFor(text),
-      this.config.timeoutMs,
-      'Semantic embedding generation',
-    );
-
-    const resultAny: any = result;
-    const rawVector =
-      (Array.isArray(resultAny) ? resultAny : null) ??
-      (Array.isArray(resultAny?.vector) ? resultAny.vector : null) ??
-      (Array.isArray(resultAny?.embedding) ? resultAny.embedding : null) ??
-      (Array.isArray(resultAny?.values) ? resultAny.values : null);
-
-    if (!rawVector) {
-      return [];
-    }
-
-    const numericVector = rawVector
-      .map((value: unknown) => (typeof value === 'number' ? value : Number(value)))
-      .filter((value: number) => Number.isFinite(value));
-
-    return normalizeVector(numericVector);
-  }
-
-  private buildEmbeddingInput(
-    entry: Pick<ConversationEntry, 'userMessage' | 'botResponse'>,
-    followUpUserMessage?: string,
-  ): string {
-    const lines = [`User: ${entry.userMessage}`, `Assistant: ${entry.botResponse}`];
-    if (followUpUserMessage && followUpUserMessage.trim().length > 0) {
-      lines.push(`Follow-up User: ${followUpUserMessage}`);
-    }
-
-    return truncateForEmbedding(lines.join('\n'), this.config.maxCharsPerEntry);
   }
 
   async indexEntry(entry: ConversationEntry): Promise<void> {
@@ -376,103 +244,63 @@ export class SemanticConversationMemory {
     }
 
     try {
-      const embeddingInput = this.buildEmbeddingInput(entry);
-      const vector = await this.getEmbeddingVector(embeddingInput);
-      if (vector.length === 0) {
-        return;
-      }
+      await this.enqueueWrite(async () => {
+        const db = await this.getDatabase();
 
-      const db = this.getDatabase();
-      this.ensureVectorTableForDimension(db, vector.length);
+        const entryId = toEntryId(entry);
+        const recallText = buildRecallText(entry, this.config.maxCharsPerEntry);
 
-      const entryId = toEntryId(entry);
+        db.run('BEGIN');
+        try {
+          db.run(
+            `
+              INSERT OR IGNORE INTO ${ENTRIES_TABLE_NAME}
+              (entry_id, timestamp, chat_id, user_message, bot_response, platform)
+              VALUES (?, ?, ?, ?, ?, ?)
+            `,
+            [entryId, entry.timestamp, entry.chatId, entry.userMessage, entry.botResponse, entry.platform],
+          );
 
-      const insertEntryStmt = db.prepare(`
-        INSERT OR IGNORE INTO semantic_memory_entries
-        (entry_id, timestamp, chat_id, user_message, bot_response, platform)
-        VALUES (@entry_id, @timestamp, @chat_id, @user_message, @bot_response, @platform)
-      `);
-      const findSeqStmt = db.prepare('SELECT seq FROM semantic_memory_entries WHERE entry_id = ?');
-      const deleteVectorStmt = db.prepare(`DELETE FROM ${VECTOR_TABLE_NAME} WHERE rowid = CAST(? AS INTEGER)`);
-      const insertVectorStmt = db.prepare(
-        `INSERT INTO ${VECTOR_TABLE_NAME}(rowid, embedding) VALUES (CAST(? AS INTEGER), ?)`,
-      );
-      const findPreviousEntryStmt = db.prepare(`
-        SELECT seq, user_message, bot_response
-        FROM semantic_memory_entries
-        WHERE chat_id = ?
-          AND seq < ?
-        ORDER BY seq DESC
-        LIMIT 1
-      `);
-      const pruneEntryStmt = db.prepare(`
-        DELETE FROM semantic_memory_entries
-        WHERE seq NOT IN (
-          SELECT seq FROM semantic_memory_entries ORDER BY seq DESC LIMIT ?
-        )
-      `);
-      const pruneVectorStmt = db.prepare(`
-        DELETE FROM ${VECTOR_TABLE_NAME}
-        WHERE rowid NOT IN (SELECT seq FROM semantic_memory_entries)
-      `);
+          const seqRows = await this.queryRows(db, `SELECT seq FROM ${ENTRIES_TABLE_NAME} WHERE entry_id = ?`, [entryId]);
+          const rawSeq = Number((seqRows[0] as any)?.seq);
+          const rowId = Number.isInteger(rawSeq) && rawSeq > 0 ? rawSeq : null;
 
-      let currentRowId: number | null = null;
+          if (rowId !== null && this.ftsAvailable) {
+            db.run(`DELETE FROM ${FTS_TABLE_NAME} WHERE seq = ?`, [rowId]);
+            db.run(`INSERT INTO ${FTS_TABLE_NAME}(seq, chat_id, content) VALUES (?, ?, ?)`, [rowId, entry.chatId, recallText]);
+          } else if (rowId === null) {
+            this.logInfo('Skipped semantic recall index insert due to invalid rowid', {
+              entryId,
+              rawSeq,
+            });
+          }
 
-      const transaction = db.transaction(() => {
-        const insertResult = insertEntryStmt.run({
-          entry_id: entryId,
-          timestamp: entry.timestamp,
-          chat_id: entry.chatId,
-          user_message: entry.userMessage,
-          bot_response: entry.botResponse,
-          platform: entry.platform,
-        });
+          if (this.config.maxEntries > 0) {
+            db.run(
+              `
+                DELETE FROM ${ENTRIES_TABLE_NAME}
+                WHERE seq NOT IN (
+                  SELECT seq FROM ${ENTRIES_TABLE_NAME} ORDER BY seq DESC LIMIT ?
+                )
+              `,
+              [this.config.maxEntries],
+            );
+            if (this.ftsAvailable) {
+              db.run(`DELETE FROM ${FTS_TABLE_NAME} WHERE seq NOT IN (SELECT seq FROM ${ENTRIES_TABLE_NAME})`);
+            }
+          }
 
-        const seqRow = findSeqStmt.get(entryId) as { seq: number } | undefined;
-        const parsedRowId = Number(seqRow?.seq);
-        const rowId = Number.isInteger(parsedRowId) && parsedRowId > 0 ? parsedRowId : null;
-        currentRowId = rowId;
-
-        if (insertResult.changes > 0 && rowId !== null) {
-          deleteVectorStmt.run(rowId);
-          insertVectorStmt.run(rowId, JSON.stringify(vector));
-        } else if (insertResult.changes > 0 && rowId === null) {
-          this.logInfo('Skipped semantic vector insert due to invalid rowid', {
-            entryId,
-            rawSeq: seqRow?.seq,
-          });
-        }
-
-        if (this.config.maxEntries > 0) {
-          pruneEntryStmt.run(this.config.maxEntries);
-          pruneVectorStmt.run();
+          db.run('COMMIT');
+          this.persistDatabase(db);
+        } catch (error) {
+          try {
+            db.run('ROLLBACK');
+          } catch {
+            // ignore rollback errors
+          }
+          throw error;
         }
       });
-
-      transaction();
-
-      if (currentRowId !== null) {
-        const previousEntry = findPreviousEntryStmt.get(entry.chatId, currentRowId) as
-          | SemanticEntryForTriplet
-          | undefined;
-
-        if (previousEntry) {
-          const previousEmbeddingInput = this.buildEmbeddingInput(
-            {
-              userMessage: previousEntry.user_message,
-              botResponse: previousEntry.bot_response,
-            },
-            entry.userMessage,
-          );
-          const previousVector = await this.getEmbeddingVector(previousEmbeddingInput);
-
-          if (previousVector.length > 0) {
-            this.ensureVectorTableForDimension(db, previousVector.length);
-            deleteVectorStmt.run(previousEntry.seq);
-            insertVectorStmt.run(previousEntry.seq, JSON.stringify(previousVector));
-          }
-        }
-      }
     } catch (error: any) {
       this.logInfo('Failed to index semantic conversation entry', {
         error: getErrorMessage(error),
@@ -486,36 +314,64 @@ export class SemanticConversationMemory {
     }
 
     try {
-      const queryVector = await this.getEmbeddingVector(truncateForEmbedding(userPrompt, this.config.maxCharsPerEntry));
-      if (queryVector.length === 0) {
-        return [];
-      }
+      await this.writeQueue;
+      const db = await this.getDatabase();
+      const query = buildFtsQuery(userPrompt);
+      const terms = buildSearchTerms(userPrompt);
 
-      const db = this.getDatabase();
-      const dimension = this.getVectorDimension(db);
-      if (!dimension || queryVector.length !== dimension) {
-        return [];
-      }
-
-      const searchK = Math.max(topK, Math.min(this.config.maxEntries, Math.max(topK * 8, 64)));
-
-      const rows = db
-        .prepare(
+      let rows: SemanticRow[] = [];
+      if (query && this.ftsAvailable) {
+        rows = await this.queryRows(
+          db,
           `
             SELECT e.timestamp, e.chat_id, e.user_message, e.bot_response, e.platform
-            FROM (
-              SELECT rowid, distance
-              FROM ${VECTOR_TABLE_NAME}
-              WHERE embedding MATCH ?
-                AND k = ?
-            ) v
-            JOIN semantic_memory_entries e ON e.seq = v.rowid
-            WHERE e.chat_id = ?
-            ORDER BY v.distance ASC, e.seq DESC
+            FROM ${FTS_TABLE_NAME} f
+            JOIN ${ENTRIES_TABLE_NAME} e ON e.seq = f.seq
+            WHERE f.chat_id = ?
+              AND f.content MATCH ?
+            ORDER BY bm25(${FTS_TABLE_NAME}) ASC, e.seq DESC
             LIMIT ?
           `,
-        )
-        .all(JSON.stringify(queryVector), searchK, chatId, topK) as SemanticRow[];
+          [chatId, query, topK],
+        );
+      }
+
+      if (rows.length === 0 && terms.length > 0) {
+        const conditions = terms.map(() => '(LOWER(user_message) LIKE ? OR LOWER(bot_response) LIKE ?)').join(' OR ');
+        const params: unknown[] = [chatId];
+        for (const term of terms) {
+          const like = `%${term}%`;
+          params.push(like, like);
+        }
+        params.push(topK);
+
+        rows = await this.queryRows(
+          db,
+          `
+            SELECT timestamp, chat_id, user_message, bot_response, platform
+            FROM ${ENTRIES_TABLE_NAME}
+            WHERE chat_id = ?
+              AND (${conditions})
+            ORDER BY seq DESC
+            LIMIT ?
+          `,
+          params,
+        );
+      }
+
+      if (rows.length === 0) {
+        rows = await this.queryRows(
+          db,
+          `
+            SELECT timestamp, chat_id, user_message, bot_response, platform
+            FROM ${ENTRIES_TABLE_NAME}
+            WHERE chat_id = ?
+            ORDER BY seq DESC
+            LIMIT ?
+          `,
+          [chatId, topK],
+        );
+      }
 
       if (rows.length === 0) {
         return [];

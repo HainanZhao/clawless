@@ -368,15 +368,6 @@ const CONFIG_FIELDS: ConfigField[] = [
     order: 50,
   },
   {
-    key: 'conversationSemanticModelPath',
-    label: 'conversationSemanticModelPath',
-    description: 'Embedding model path or hf: URI.',
-    valueType: 'string',
-    isRequired: () => false,
-    isVisible: () => true,
-    order: 51,
-  },
-  {
     key: 'conversationSemanticStorePath',
     label: 'conversationSemanticStorePath',
     description: 'Semantic memory SQLite store file path.',
@@ -397,20 +388,11 @@ const CONFIG_FIELDS: ConfigField[] = [
   {
     key: 'conversationSemanticMaxCharsPerEntry',
     label: 'conversationSemanticMaxCharsPerEntry',
-    description: 'Maximum chars per semantic entry for embedding.',
+    description: 'Maximum chars per semantic entry for lexical recall.',
     valueType: 'number',
     isRequired: () => false,
     isVisible: () => true,
     order: 54,
-  },
-  {
-    key: 'conversationSemanticTimeoutMs',
-    label: 'conversationSemanticTimeoutMs',
-    description: 'Timeout for semantic embed/query operations in ms.',
-    valueType: 'number',
-    isRequired: () => false,
-    isVisible: () => true,
-    order: 55,
   },
   {
     key: 'schedulesFilePath',
