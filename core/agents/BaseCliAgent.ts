@@ -33,8 +33,28 @@ export abstract class BaseCliAgent {
 
   /**
    * Build command-line arguments for ACP mode
+   * Default implementation works for most ACP-capable agents
    */
-  abstract buildAcpArgs(): string[];
+  buildAcpArgs(): string[] {
+    const args = ['--experimental-acp'];
+
+    if (this.config.includeDirectories && this.config.includeDirectories.length > 0) {
+      const includeDirectorySet = new Set(this.config.includeDirectories);
+      for (const includeDirectory of includeDirectorySet) {
+        args.push('--include-directories', includeDirectory);
+      }
+    }
+
+    if (this.config.approvalMode) {
+      args.push('--approval-mode', this.config.approvalMode);
+    }
+
+    if (this.config.model) {
+      args.push('--model', this.config.model);
+    }
+
+    return args;
+  }
 
   /**
    * Get agent capabilities

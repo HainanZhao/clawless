@@ -125,7 +125,7 @@ The bridge:
 - **Node.js** 18.0.0 or higher
 - **A local ACP-capable agent CLI** installed and configured:
   - **Gemini CLI** (default) - Follow [installation instructions](https://github.com/google/generative-ai-cli)
-  - **OpenCode** - Follow [installation instructions](https://github.com/your-opencode-link) (if applicable)
+  - **OpenCode** - An alternative ACP-capable CLI agent
 - **Platform credentials** (choose one):
   - **Telegram**: Bot Token from [@BotFather](https://t.me/BotFather)
   - **Slack**: Bot Token, Signing Secret, and optionally App Token from [api.slack.com/apps](https://api.slack.com/apps)

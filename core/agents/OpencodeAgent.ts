@@ -18,27 +18,6 @@ export class OpencodeAgent extends BaseCliAgent {
     return 'OpenCode';
   }
 
-  buildAcpArgs(): string[] {
-    const args = ['--experimental-acp'];
-
-    if (this.config.includeDirectories && this.config.includeDirectories.length > 0) {
-      const includeDirectorySet = new Set(this.config.includeDirectories);
-      for (const includeDirectory of includeDirectorySet) {
-        args.push('--include-directories', includeDirectory);
-      }
-    }
-
-    if (this.config.approvalMode) {
-      args.push('--approval-mode', this.config.approvalMode);
-    }
-
-    if (this.config.model) {
-      args.push('--model', this.config.model);
-    }
-
-    return args;
-  }
-
   getCapabilities(): CliAgentCapabilities {
     return {
       supportsAcp: true,
@@ -59,14 +38,14 @@ export class OpencodeAgent extends BaseCliAgent {
       if ((result as any).error?.code === 'ENOENT') {
         return {
           valid: false,
-          error: `OpenCode CLI executable not found: ${this.config.command}. Install OpenCode or set CLI_AGENT_COMMAND to a valid executable path.`,
+          error: `${this.getDisplayName()} executable not found: ${this.config.command}. Install ${this.getDisplayName()} or set CLI_AGENT_COMMAND to a valid executable path.`,
         };
       }
 
       if ((result as any).error) {
         return {
           valid: false,
-          error: `Failed to execute OpenCode CLI (${this.config.command}): ${(result as any).error.message}`,
+          error: `Failed to execute ${this.getDisplayName()} (${this.config.command}): ${(result as any).error.message}`,
         };
       }
 
@@ -74,7 +53,7 @@ export class OpencodeAgent extends BaseCliAgent {
     } catch (error: any) {
       return {
         valid: false,
-        error: `Failed to validate OpenCode CLI: ${error.message}`,
+        error: `Failed to validate ${this.getDisplayName()}: ${error.message}`,
       };
     }
   }
