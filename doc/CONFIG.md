@@ -14,13 +14,20 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `timezone` | `UTC` | Timezone used by scheduler cron execution. |
 | `typingIntervalMs` | `4000` | Typing indicator refresh interval while processing. |
 | `streamUpdateIntervalMs` | `5000` | Minimum interval between progressive streaming message updates. |
-| `geminiCommand` | `gemini` | Agent CLI executable name/path. |
-| `geminiApprovalMode` | `yolo` | Gemini approval mode (`default`, `auto_edit`, `yolo`, `plan`). |
-| `geminiModel` | `""` | Optional Gemini model override. |
+| `cliAgent` | `gemini` | CLI agent type to use (`gemini` or `opencode`). |
+| `cliAgentCommand` | *(auto)* | CLI agent executable name/path. Auto-set based on `cliAgent` if not specified. |
+| `cliAgentApprovalMode` | `yolo` | Agent approval mode (`default`, `auto_edit`, `yolo`, `plan`). |
+| `cliAgentModel` | `""` | Optional model override for the agent. |
+| `cliAgentTimeoutMs` | `1200000` | Hard timeout for one agent run (ms). |
+| `cliAgentNoOutputTimeoutMs` | `300000` | Idle timeout when no output is produced (ms). |
+| `cliAgentKillGraceMs` | `5000` | Grace period before forced process kill after termination (ms). |
+| `geminiCommand` | `gemini` | **[Deprecated]** Use `cliAgentCommand` instead. Legacy Gemini CLI path. |
+| `geminiApprovalMode` | `yolo` | **[Deprecated]** Use `cliAgentApprovalMode` instead. Legacy approval mode. |
+| `geminiModel` | `""` | **[Deprecated]** Use `cliAgentModel` instead. Legacy model override. |
+| `geminiTimeoutMs` | `1200000` | **[Deprecated]** Use `cliAgentTimeoutMs` instead. Legacy timeout. |
+| `geminiNoOutputTimeoutMs` | `300000` | **[Deprecated]** Use `cliAgentNoOutputTimeoutMs` instead. Legacy idle timeout. |
+| `geminiKillGraceMs` | `5000` | **[Deprecated]** Use `cliAgentKillGraceMs` instead. Legacy kill grace period. |
 | `acpPermissionStrategy` | `allow_once` | Auto selection strategy for ACP permission prompts. |
-| `geminiTimeoutMs` | `1200000` | Hard timeout for one agent run (ms). |
-| `geminiNoOutputTimeoutMs` | `300000` | Idle timeout when no output is produced (ms). |
-| `geminiKillGraceMs` | `5000` | Grace period before forced process kill after termination (ms). |
 | `acpPrewarmRetryMs` | `30000` | Delay before retrying ACP prewarm after failure (ms). |
 | `acpPrewarmMaxRetries` | `10` | Max prewarm retries (`0` = unlimited). |
 | `acpMcpServersJson` | `""` | Optional JSON override for ACP MCP server list. |
@@ -46,3 +53,21 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `conversationSemanticMaxEntries` | `1000` | Max retained semantic entries (FIFO). |
 | `conversationSemanticMaxCharsPerEntry` | `4000` | Max chars per entry used for lexical recall indexing. |
 | `schedulesFilePath` | `~/.clawless/schedules.json` | Scheduler persistence file path. |
+
+## CLI Agent Selection
+
+To switch between different CLI agents (e.g., Gemini CLI, OpenCode), set the `cliAgent` configuration key:
+
+```json
+{
+  "cliAgent": "opencode",
+  "cliAgentCommand": "opencode",
+  "cliAgentApprovalMode": "yolo"
+}
+```
+
+Supported agents:
+- `gemini` - Google Gemini CLI (default)
+- `opencode` - OpenCode CLI agent
+
+The system will automatically validate that the selected agent is installed and executable at startup.

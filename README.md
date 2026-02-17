@@ -2,7 +2,9 @@
 
 Clawless is an interface bridge built around one core idea: **Bring Your Own Agent**.
 
-Instead of forcing a built-in runtime, Clawless lets you keep your preferred local ACP-capable CLI (Gemini CLI by default) and adds a reliable interface layer, callbacks, and scheduling on top.
+Instead of forcing a built-in runtime, Clawless lets you keep your preferred local ACP-capable CLI and adds a reliable interface layer, callbacks, and scheduling on top.
+
+Supported CLI agents: **Gemini CLI** (default), **OpenCode**
 
 Today, Telegram and Slack are supported interface adapters.
 
@@ -14,6 +16,13 @@ Clawless is designed so your messaging layer and automation layer stay stable wh
 - Keep your existing MCP tools and local files
 - Swap runtimes without rebuilding your bot integration
 - Avoid lock-in to a single all-in-one framework
+
+### Supported CLI Agents
+
+- **Gemini CLI** (default) - Google's Gemini CLI with ACP support
+- **OpenCode** - Alternative ACP-capable agent runtime
+
+Adding new agents is straightforward - see the `core/agents/` directory for implementation examples.
 
 ## Why Clawless
 
@@ -58,7 +67,7 @@ flowchart LR
   subgraph CORE["Clawless Core"]
     direction TB
     Q["Queue + Single Worker<br/>Live Message Streaming"]
-    ACP["ACP Runtime<br/>Gemini CLI by default"]
+    ACP["ACP Runtime<br/>Gemini CLI (default) or OpenCode"]
     CRON[Cron Scheduler / Job Runner]
   end
 
@@ -114,7 +123,9 @@ The bridge:
 ## Prerequisites
 
 - **Node.js** 18.0.0 or higher
-- **A local ACP-capable agent CLI** installed and configured (Gemini CLI is the default setup)
+- **A local ACP-capable agent CLI** installed and configured:
+  - **Gemini CLI** (default) - Follow [installation instructions](https://github.com/google/generative-ai-cli)
+  - **OpenCode** - Follow [installation instructions](https://github.com/your-opencode-link) (if applicable)
 - **Platform credentials** (choose one):
   - **Telegram**: Bot Token from [@BotFather](https://t.me/BotFather)
   - **Slack**: Bot Token, Signing Secret, and optionally App Token from [api.slack.com/apps](https://api.slack.com/apps)
