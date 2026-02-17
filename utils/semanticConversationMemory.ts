@@ -52,7 +52,9 @@ function buildFtsQuery(input: string): string {
     return '';
   }
 
-  return Array.from(new Set(tokens)).map((token) => `${token}*`).join(' OR ');
+  return Array.from(new Set(tokens))
+    .map((token) => `${token}*`)
+    .join(' OR ');
 }
 
 function buildSearchTerms(input: string): string[] {
@@ -109,8 +111,7 @@ export class SemanticConversationMemory {
       reason,
       error: error ? getErrorMessage(error) : undefined,
       action:
-        action ||
-        'Verify sql.js/SQLite FTS5 support and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.',
+        action || 'Verify sql.js/SQLite FTS5 support and restart, or set CONVERSATION_SEMANTIC_RECALL_ENABLED=false.',
     });
   }
 
@@ -261,13 +262,19 @@ export class SemanticConversationMemory {
             [entryId, entry.timestamp, entry.chatId, entry.userMessage, entry.botResponse, entry.platform],
           );
 
-          const seqRows = await this.queryRows(db, `SELECT seq FROM ${ENTRIES_TABLE_NAME} WHERE entry_id = ?`, [entryId]);
+          const seqRows = await this.queryRows(db, `SELECT seq FROM ${ENTRIES_TABLE_NAME} WHERE entry_id = ?`, [
+            entryId,
+          ]);
           const rawSeq = Number((seqRows[0] as any)?.seq);
           const rowId = Number.isInteger(rawSeq) && rawSeq > 0 ? rawSeq : null;
 
           if (rowId !== null && this.ftsAvailable) {
             db.run(`DELETE FROM ${FTS_TABLE_NAME} WHERE seq = ?`, [rowId]);
-            db.run(`INSERT INTO ${FTS_TABLE_NAME}(seq, chat_id, content) VALUES (?, ?, ?)`, [rowId, entry.chatId, recallText]);
+            db.run(`INSERT INTO ${FTS_TABLE_NAME}(seq, chat_id, content) VALUES (?, ?, ?)`, [
+              rowId,
+              entry.chatId,
+              recallText,
+            ]);
           } else if (rowId === null) {
             this.logInfo('Skipped semantic recall index insert due to invalid rowid', {
               entryId,
