@@ -25,11 +25,16 @@ export function ensureMemoryFile(memoryFilePath: string, logInfo: LogInfoFn) {
 export function readMemoryContext(memoryFilePath: string, memoryMaxChars: number, logInfo: LogInfoFn) {
   try {
     const content = fs.readFileSync(memoryFilePath, 'utf8');
-    if (content.length <= memoryMaxChars) {
-      return content;
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return '';
     }
 
-    return content.slice(-memoryMaxChars);
+    if (trimmed.length <= memoryMaxChars) {
+      return trimmed;
+    }
+
+    return trimmed.slice(-memoryMaxChars);
   } catch (error: any) {
     logInfo('Unable to read memory file; continuing without memory context', {
       memoryFilePath,
@@ -62,8 +67,9 @@ export function buildPromptWithMemory(params: {
 
   const callbackEndpoint = `http://${callbackHost}:${callbackPort}/callback/${messagingPlatform}`;
   const scheduleEndpoint = `http://${callbackHost}:${callbackPort}/api/schedule`;
+  const semanticRecallEndpoint = `http://${callbackHost}:${callbackPort}/api/memory/semantic-recall`;
 
-  return [
+  const parts = [
     'System instruction:',
     `- Persistent memory file path: ${memoryFilePath}`,
     '- If user asks to remember/memorize/save for later, append a concise bullet under "## Notes" in that file.',
@@ -87,14 +93,23 @@ export function buildPromptWithMemory(params: {
     '- Never edit scheduler persistence files directly; always mutate schedules through the Scheduler API.',
     `- When schedule runs, it executes the message through Gemini CLI and sends results to ${messagingPlatform}.`,
     '- Use this API when user asks to schedule tasks, set reminders, or create recurring jobs.',
+    '',
+    '**Semantic recall API (on-demand):**',
+    `- Endpoint: POST ${semanticRecallEndpoint}`,
+    '- Request body: {"input": "current user question", "chatId": "optional", "topK": 3}',
+    '- Use this endpoint only when you need additional historical context that is not obvious from current prompt/memory.',
+    '- Prefer dynamic fetch over assuming prior context; keep prompts lean unless context is required.',
+    '- If `chatId` is omitted, server falls back to persisted bound chat context when available.',
     callbackAuthToken
-      ? '- Scheduler auth is enabled: include `x-callback-token` (or bearer token) header when creating requests.'
-      : '- Scheduler auth is disabled unless CALLBACK_AUTH_TOKEN is configured.',
-    '',
-    'Current memory context:',
-    memoryContext,
-    '',
-    'User message:',
-    userPrompt,
-  ].join('\n');
+      ? '- API auth is enabled (scheduler + semantic recall): include `x-callback-token` (or bearer token) header.'
+      : '- API auth is disabled unless CALLBACK_AUTH_TOKEN is configured.',
+  ];
+
+  if (memoryContext && memoryContext.trim().length > 0) {
+    parts.push('', 'Current memory context:', memoryContext);
+  }
+
+  parts.push('', 'User message:', userPrompt);
+
+  return parts.join('\n');
 }

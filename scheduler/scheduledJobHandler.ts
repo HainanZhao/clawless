@@ -3,7 +3,7 @@ import { getErrorMessage } from '../utils/error.js';
 
 export interface ScheduledJobHandlerDeps {
   logInfo: (message: string, details?: unknown) => void;
-  buildPromptWithMemory: (userPrompt: string) => string;
+  buildPromptWithMemory: (userPrompt: string) => Promise<string>;
   runScheduledPromptWithTempAcp: (promptForGemini: string, scheduleId: string) => Promise<string>;
   resolveTargetChatId: () => string | null;
   sendTextToChat: (chatId: string | number, text: string) => Promise<void>;
@@ -24,7 +24,7 @@ export function createScheduledJobHandler(deps: ScheduledJobHandlerDeps) {
     logInfo('Executing scheduled job', { scheduleId: schedule.id, message: schedule.message });
 
     try {
-      const promptForGemini = buildPromptWithMemory(schedule.message);
+      const promptForGemini = await buildPromptWithMemory(schedule.message);
       logInfo('Scheduler prompt payload sent to Gemini', {
         scheduleId: schedule.id,
         prompt: promptForGemini,

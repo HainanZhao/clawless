@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { runConfigTui } from './configTui.js';
 
 const ENV_KEY_MAP: Record<string, string> = {
   messagingPlatform: 'MESSAGING_PLATFORM',
@@ -38,6 +39,18 @@ const ENV_KEY_MAP: Record<string, string> = {
   ClawlessHome: 'AGENT_BRIDGE_HOME',
   memoryFilePath: 'MEMORY_FILE_PATH',
   memoryMaxChars: 'MEMORY_MAX_CHARS',
+  conversationHistoryEnabled: 'CONVERSATION_HISTORY_ENABLED',
+  conversationHistoryFilePath: 'CONVERSATION_HISTORY_FILE_PATH',
+  conversationHistoryMaxEntries: 'CONVERSATION_HISTORY_MAX_ENTRIES',
+  conversationHistoryMaxCharsPerEntry: 'CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY',
+  conversationHistoryMaxTotalChars: 'CONVERSATION_HISTORY_MAX_TOTAL_CHARS',
+  conversationHistoryRecapTopK: 'CONVERSATION_HISTORY_RECAP_TOP_K',
+  conversationSemanticRecallEnabled: 'CONVERSATION_SEMANTIC_RECALL_ENABLED',
+  conversationSemanticModelPath: 'CONVERSATION_SEMANTIC_MODEL_PATH',
+  conversationSemanticStorePath: 'CONVERSATION_SEMANTIC_STORE_PATH',
+  conversationSemanticMaxEntries: 'CONVERSATION_SEMANTIC_MAX_ENTRIES',
+  conversationSemanticMaxCharsPerEntry: 'CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY',
+  conversationSemanticTimeoutMs: 'CONVERSATION_SEMANTIC_TIMEOUT_MS',
   schedulesFilePath: 'SCHEDULES_FILE_PATH',
 };
 
@@ -76,6 +89,18 @@ const DEFAULT_CONFIG_TEMPLATE = {
   agentBridgeHome: '~/.clawless',
   memoryFilePath: '~/.clawless/MEMORY.md',
   memoryMaxChars: 12000,
+  conversationHistoryEnabled: true,
+  conversationHistoryFilePath: '~/.clawless/conversation-history.jsonl',
+  conversationHistoryMaxEntries: 100,
+  conversationHistoryMaxCharsPerEntry: 2000,
+  conversationHistoryMaxTotalChars: 8000,
+  conversationHistoryRecapTopK: 3,
+  conversationSemanticRecallEnabled: true,
+  conversationSemanticModelPath: 'hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf',
+  conversationSemanticStorePath: '~/.clawless/conversation-semantic-memory.db',
+  conversationSemanticMaxEntries: 1000,
+  conversationSemanticMaxCharsPerEntry: 4000,
+  conversationSemanticTimeoutMs: 15000,
   schedulesFilePath: '~/.clawless/schedules.json',
 };
 
@@ -83,10 +108,10 @@ function printHelp() {
   console.log(`clawless
 
 Usage:
-	clawless [--config <path>]
+  clawless [--config [path]]
 
 Options:
-	--config <path>   Path to JSON config file (default: ~/.clawless/config.json)
+  --config [path]   Open config TUI (or use custom config path)
 	-h, --help        Show this help message
 
 Config precedence:
@@ -97,8 +122,9 @@ Config precedence:
 
 function parseArgs(argv: string[]) {
   const result = {
-    configPath: process.env.GEMINI_BRIDGE_CONFIG || process.env.AGENT_BRIDGE_CONFIG || DEFAULT_CONFIG_PATH,
+    configPath: process.env.CLAWLESS_CONFIG || DEFAULT_CONFIG_PATH,
     help: false,
+    openConfigTui: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -110,10 +136,12 @@ function parseArgs(argv: string[]) {
     }
 
     if (arg === '--config') {
+      result.openConfigTui = true;
       const value = argv[index + 1];
-      if (!value) {
-        throw new Error('--config requires a file path');
+      if (!value || value.startsWith('-')) {
+        continue;
       }
+
       result.configPath = value;
       index += 1;
       continue;
@@ -256,15 +284,32 @@ async function main() {
     process.exit(0);
   }
 
-  const configState = ensureConfigFile(args.configPath);
-  const memoryState = ensureMemoryFromEnv();
-  logMemoryFileCreation(memoryState);
+  const resolvedConfigPath = resolveConfigPath(args.configPath);
+  const configExists = fs.existsSync(resolvedConfigPath);
 
-  if (configState.created) {
-    console.log(`[clawless] Created config template: ${configState.path}`);
-    console.log('[clawless] Fill in placeholder values, then run clawless again.');
+  if (!configExists) {
+    if (process.stdin.isTTY && process.stdout.isTTY) {
+      const tuiResult = await runConfigTui(args.configPath, DEFAULT_CONFIG_TEMPLATE, resolveConfigPath);
+      if (!tuiResult.saved) {
+        throw new Error('Config file is required. Re-run and save configuration in TUI.');
+      }
+    } else {
+      const configState = ensureConfigFile(args.configPath);
+      console.log(`[clawless] Created config template: ${configState.path}`);
+      console.log('[clawless] Fill in placeholder values, then run clawless again.');
+      process.exit(0);
+    }
+  } else if (args.openConfigTui) {
+    if (!process.stdin.isTTY || !process.stdout.isTTY) {
+      throw new Error('Config TUI requires an interactive terminal');
+    }
+
+    await runConfigTui(args.configPath, DEFAULT_CONFIG_TEMPLATE, resolveConfigPath);
     process.exit(0);
   }
+
+  const memoryState = ensureMemoryFromEnv();
+  logMemoryFileCreation(memoryState);
 
   const loadedConfigPath = loadConfigFile(args.configPath);
   if (loadedConfigPath) {

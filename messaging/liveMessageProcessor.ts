@@ -10,6 +10,7 @@ type ProcessSingleMessageParams = {
   runAcpPrompt: (promptText: string, onChunk?: (chunk: string) => void) => Promise<string>;
   logInfo: LogInfoFn;
   getErrorMessage: (error: unknown, fallbackMessage?: string) => string;
+  onConversationComplete?: (userMessage: string, botResponse: string, chatId: string) => void;
 };
 
 export async function processSingleTelegramMessage({
@@ -22,6 +23,7 @@ export async function processSingleTelegramMessage({
   runAcpPrompt,
   logInfo,
   getErrorMessage,
+  onConversationComplete,
 }: ProcessSingleMessageParams) {
   logInfo('Starting message processing', {
     requestId: messageRequestId,
@@ -32,7 +34,7 @@ export async function processSingleTelegramMessage({
   let liveMessageId: string | number | undefined;
   let previewBuffer = '';
   let flushTimer: NodeJS.Timeout | null = null;
-  let lastFlushAt = 0;
+  let lastFlushAt = Date.now();
   let lastChunkAt = 0;
   let finalizedViaLiveMessage = false;
   let startingLiveMessage: Promise<void> | null = null;
@@ -52,8 +54,8 @@ export async function processSingleTelegramMessage({
     return `${previewBuffer.slice(0, maxResponseLength - 1)}…`;
   };
 
-  const flushPreview = async (force = false) => {
-    if (!liveMessageId || finalizedViaLiveMessage) {
+  const flushPreview = async (force = false, allowStart = true) => {
+    if (finalizedViaLiveMessage) {
       return;
     }
 
@@ -65,6 +67,34 @@ export async function processSingleTelegramMessage({
     lastFlushAt = now;
     const text = previewText();
     if (!text) {
+      return;
+    }
+
+    if (!liveMessageId) {
+      if (!allowStart) {
+        return;
+      }
+
+      if (startingLiveMessage) {
+        await startingLiveMessage;
+      } else {
+        startingLiveMessage = (async () => {
+          try {
+            liveMessageId = await messageContext.startLiveMessage(text || '…');
+          } catch (_) {
+            liveMessageId = undefined;
+          }
+        })();
+
+        try {
+          await startingLiveMessage;
+        } finally {
+          startingLiveMessage = null;
+        }
+      }
+    }
+
+    if (!liveMessageId) {
       return;
     }
 
@@ -99,33 +129,6 @@ export async function processSingleTelegramMessage({
     }, dueIn);
   };
 
-  const ensureLiveMessageStarted = async () => {
-    if (liveMessageId || finalizedViaLiveMessage) {
-      return;
-    }
-
-    if (startingLiveMessage) {
-      await startingLiveMessage;
-      return;
-    }
-
-    startingLiveMessage = (async () => {
-      try {
-        const initialPreview = previewText() || '…';
-        liveMessageId = await messageContext.startLiveMessage(initialPreview);
-        lastFlushAt = Date.now();
-      } catch (_) {
-        liveMessageId = undefined;
-      }
-    })();
-
-    try {
-      await startingLiveMessage;
-    } finally {
-      startingLiveMessage = null;
-    }
-  };
-
   const finalizeCurrentMessage = async () => {
     if (!liveMessageId) {
       return;
@@ -138,7 +141,7 @@ export async function processSingleTelegramMessage({
     }
 
     clearFlushTimer();
-    await flushPreview(true);
+    await flushPreview(true, false);
 
     try {
       const text = previewText();
@@ -173,7 +176,6 @@ export async function processSingleTelegramMessage({
 
       lastChunkAt = now;
       previewBuffer += chunk;
-      void ensureLiveMessageStarted();
       void scheduleFlush();
     });
     promptCompleted = true;
@@ -209,6 +211,18 @@ export async function processSingleTelegramMessage({
 
     if (!finalizedViaLiveMessage) {
       await messageContext.sendText(fullResponse || 'No response received.');
+    }
+
+    // Track conversation history after successful completion
+    if (onConversationComplete && fullResponse) {
+      try {
+        onConversationComplete(messageContext.text, fullResponse, messageContext.chatId);
+      } catch (error: any) {
+        logInfo('Failed to track conversation history', {
+          requestId: messageRequestId,
+          error: getErrorMessage(error),
+        });
+      }
     }
   } finally {
     clearFlushTimer();

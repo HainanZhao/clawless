@@ -26,6 +26,16 @@ import {
   readMemoryContext,
   buildPromptWithMemory as buildPromptWithMemoryTemplate,
 } from './utils/memory.js';
+import {
+  ensureConversationHistoryFile,
+  appendConversationEntry,
+  loadConversationHistory,
+  type ConversationHistoryConfig,
+} from './utils/conversationHistory.js';
+import {
+  SemanticConversationMemory,
+  type SemanticConversationMemoryConfig,
+} from './utils/semanticConversationMemory.js';
 import dotenv from 'dotenv';
 
 // Load environment variables
@@ -86,6 +96,32 @@ const CALLBACK_HOST = process.env.CALLBACK_HOST || 'localhost';
 const CALLBACK_PORT = parseInt(process.env.CALLBACK_PORT || '8788', 10);
 const CALLBACK_AUTH_TOKEN = process.env.CALLBACK_AUTH_TOKEN || '';
 const CALLBACK_MAX_BODY_BYTES = parseInt(process.env.CALLBACK_MAX_BODY_BYTES || '65536', 10);
+
+// Conversation history configuration
+const CONVERSATION_HISTORY_ENABLED =
+  String(process.env.CONVERSATION_HISTORY_ENABLED || 'true').toLowerCase() === 'true';
+const CONVERSATION_HISTORY_FILE_PATH =
+  process.env.CONVERSATION_HISTORY_FILE_PATH || path.join(AGENT_BRIDGE_HOME, 'conversation-history.jsonl');
+const CONVERSATION_HISTORY_MAX_ENTRIES = parseInt(process.env.CONVERSATION_HISTORY_MAX_ENTRIES || '100', 10);
+const CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY = parseInt(
+  process.env.CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY || '2000',
+  10,
+);
+const CONVERSATION_HISTORY_MAX_TOTAL_CHARS = parseInt(process.env.CONVERSATION_HISTORY_MAX_TOTAL_CHARS || '8000', 10);
+const CONVERSATION_HISTORY_RECAP_TOP_K = parseInt(process.env.CONVERSATION_HISTORY_RECAP_TOP_K || '3', 10);
+const CONVERSATION_SEMANTIC_RECALL_ENABLED =
+  String(process.env.CONVERSATION_SEMANTIC_RECALL_ENABLED || 'true').toLowerCase() === 'true';
+const CONVERSATION_SEMANTIC_MODEL_PATH =
+  process.env.CONVERSATION_SEMANTIC_MODEL_PATH ||
+  'hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf';
+const CONVERSATION_SEMANTIC_STORE_PATH =
+  process.env.CONVERSATION_SEMANTIC_STORE_PATH || path.join(AGENT_BRIDGE_HOME, 'conversation-semantic-memory.db');
+const CONVERSATION_SEMANTIC_MAX_ENTRIES = parseInt(process.env.CONVERSATION_SEMANTIC_MAX_ENTRIES || '1000', 10);
+const CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY = parseInt(
+  process.env.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY || '4000',
+  10,
+);
+const CONVERSATION_SEMANTIC_TIMEOUT_MS = parseInt(process.env.CONVERSATION_SEMANTIC_TIMEOUT_MS || '15000', 10);
 
 // Typing indicator refresh interval (platform typing state expires quickly)
 const TYPING_INTERVAL_MS = parseInt(process.env.TYPING_INTERVAL_MS || '4000', 10);
@@ -158,6 +194,26 @@ const enforceWhitelist = true;
 let lastIncomingChatId: string | null = null;
 const GEMINI_STDERR_TAIL_MAX = 4000;
 
+// Conversation history configuration
+const conversationHistoryConfig: ConversationHistoryConfig = {
+  filePath: CONVERSATION_HISTORY_FILE_PATH,
+  maxEntries: CONVERSATION_HISTORY_MAX_ENTRIES,
+  maxCharsPerEntry: CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY,
+  maxTotalChars: CONVERSATION_HISTORY_MAX_TOTAL_CHARS,
+  logInfo,
+};
+
+const semanticConversationMemoryConfig: SemanticConversationMemoryConfig = {
+  enabled: CONVERSATION_SEMANTIC_RECALL_ENABLED,
+  storePath: CONVERSATION_SEMANTIC_STORE_PATH,
+  modelPath: CONVERSATION_SEMANTIC_MODEL_PATH,
+  maxEntries: CONVERSATION_SEMANTIC_MAX_ENTRIES,
+  maxCharsPerEntry: CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY,
+  timeoutMs: CONVERSATION_SEMANTIC_TIMEOUT_MS,
+};
+
+const semanticConversationMemory = new SemanticConversationMemory(semanticConversationMemoryConfig, logInfo);
+
 function validateGeminiCommandOrExit() {
   const result = spawnSync(GEMINI_COMMAND, ['--version'], {
     stdio: 'ignore',
@@ -205,11 +261,14 @@ const { startCallbackServer, stopCallbackServer } = createCallbackServer({
   messagingClient,
   messagingPlatform: MESSAGING_PLATFORM,
   getLastIncomingChatId: () => lastIncomingChatId,
+  semanticConversationMemory,
+  conversationHistoryMaxTotalChars: CONVERSATION_HISTORY_MAX_TOTAL_CHARS,
+  conversationHistoryRecapTopK: CONVERSATION_HISTORY_RECAP_TOP_K,
   logInfo,
 });
 
-function buildPromptWithMemory(userPrompt: string) {
-  const memoryContext = readMemoryContext(MEMORY_FILE_PATH, MEMORY_MAX_CHARS, logInfo) || '(No saved memory yet)';
+async function buildPromptWithMemory(userPrompt: string): Promise<string> {
+  const memoryContext = readMemoryContext(MEMORY_FILE_PATH, MEMORY_MAX_CHARS, logInfo);
 
   return buildPromptWithMemoryTemplate({
     userPrompt,
@@ -277,8 +336,8 @@ const hasActiveAcpPrompt = acpRuntime.hasActiveAcpPrompt;
 const cancelActiveAcpPrompt = acpRuntime.cancelActiveAcpPrompt;
 
 const { enqueueMessage, getQueueLength } = createMessageQueueProcessor({
-  processSingleMessage: (messageContext, messageRequestId) =>
-    processSingleTelegramMessage({
+  processSingleMessage: (messageContext, messageRequestId) => {
+    return processSingleTelegramMessage({
       messageContext,
       messageRequestId,
       maxResponseLength: MAX_RESPONSE_LENGTH,
@@ -288,7 +347,22 @@ const { enqueueMessage, getQueueLength } = createMessageQueueProcessor({
       runAcpPrompt,
       logInfo,
       getErrorMessage,
-    }),
+      onConversationComplete: CONVERSATION_HISTORY_ENABLED
+        ? (userMessage, botResponse, chatId) => {
+            const appendedEntry = appendConversationEntry(conversationHistoryConfig, {
+              chatId,
+              userMessage,
+              botResponse,
+              platform: MESSAGING_PLATFORM,
+            });
+
+            if (appendedEntry && semanticConversationMemory.isEnabled) {
+              void semanticConversationMemory.indexEntry(appendedEntry);
+            }
+          }
+        : undefined,
+    });
+  },
   logInfo,
   getErrorMessage,
 });
@@ -322,6 +396,15 @@ logInfo('Starting Clawless server...', {
 validateGeminiCommandOrExit();
 ensureBridgeHomeDirectory(AGENT_BRIDGE_HOME);
 ensureMemoryFile(MEMORY_FILE_PATH, logInfo);
+if (CONVERSATION_HISTORY_ENABLED) {
+  ensureConversationHistoryFile(CONVERSATION_HISTORY_FILE_PATH, logInfo);
+
+  if (semanticConversationMemory.isEnabled) {
+    semanticConversationMemory.ensureStoreFile();
+    const historicalEntries = loadConversationHistory(conversationHistoryConfig);
+    void semanticConversationMemory.warmFromHistory(historicalEntries);
+  }
+}
 lastIncomingChatId = loadPersistedCallbackChatId(CALLBACK_CHAT_STATE_FILE_PATH, logInfo);
 if (lastIncomingChatId) {
   logInfo('Loaded callback chat binding', { chatId: lastIncomingChatId });
@@ -340,6 +423,12 @@ messagingClient
       heartbeatIntervalMs: HEARTBEAT_INTERVAL_MS,
       acpPrewarmRetryMs: ACP_PREWARM_RETRY_MS,
       memoryFilePath: MEMORY_FILE_PATH,
+      conversationHistoryEnabled: CONVERSATION_HISTORY_ENABLED,
+      conversationHistoryFilePath: CONVERSATION_HISTORY_ENABLED ? CONVERSATION_HISTORY_FILE_PATH : 'disabled',
+      conversationHistoryRecapTopK: CONVERSATION_HISTORY_RECAP_TOP_K,
+      conversationSemanticRecallEnabled: CONVERSATION_SEMANTIC_RECALL_ENABLED,
+      conversationSemanticModelPath: CONVERSATION_SEMANTIC_RECALL_ENABLED ? CONVERSATION_SEMANTIC_MODEL_PATH : 'n/a',
+      conversationSemanticStorePath: CONVERSATION_SEMANTIC_RECALL_ENABLED ? CONVERSATION_SEMANTIC_STORE_PATH : 'n/a',
       callbackHost: CALLBACK_HOST,
       callbackPort: CALLBACK_PORT,
       mcpSkillsSource: 'local Gemini CLI defaults (no MCP override)',

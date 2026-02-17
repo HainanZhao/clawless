@@ -206,6 +206,50 @@ curl -X POST http://127.0.0.1:8788/api/schedule \
   }' | jq .
 ```
 
+## Semantic Recall API Manual Test
+
+### Test 10: Query semantic recall
+
+Use the local semantic recall endpoint to fetch historical context on demand:
+
+```bash
+curl -X POST http://127.0.0.1:8788/api/memory/semantic-recall \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "What did we decide about semantic memory design?",
+    "topK": 3
+  }' | jq .
+```
+
+**Expected Result:**
+- HTTP 200 response
+- JSON with `ok: true`
+- A `recap` string and `entries` array
+
+If auth is enabled (`CALLBACK_AUTH_TOKEN`):
+
+```bash
+curl -X POST http://127.0.0.1:8788/api/memory/semantic-recall \
+  -H "Content-Type: application/json" \
+  -H "x-callback-token: YOUR_TOKEN_HERE" \
+  -d '{
+    "input": "What did we decide about semantic memory design?",
+    "topK": 3
+  }' | jq .
+```
+
+### Test 11: Validation errors
+
+Missing `input` should return `400`:
+
+```bash
+curl -X POST http://127.0.0.1:8788/api/memory/semantic-recall \
+  -H "Content-Type: application/json" \
+  -d '{}' | jq .
+```
+
+When no chat is bound and no `chatId` is provided, request should return `400` with guidance to bind chat context.
+
 ## Cleanup
 
 After testing, remove all test schedules:

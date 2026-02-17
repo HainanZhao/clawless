@@ -39,6 +39,8 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 - 🛠️ **Rich Tool Support**: Leverages MCP (Model Context Protocol) servers connected to your local CLI runtime
 - 🔒 **Privacy**: Runs on your hardware, you control data flow
 - 💾 **Persistent Context**: Maintains local session unlike standard API calls
+- 🧠 **Conversation History (Local JSONL)**: Persists chat turns in a human-readable local JSONL file with bounded retention
+- 🧬 **Semantic Recall (On-Demand)**: Uses local `node-llama-cpp` embeddings + SQLite/`sqlite-vec` and can be queried via local API when extra context is needed
 - 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
 - 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API
@@ -64,6 +66,7 @@ flowchart LR
     direction TB
     CB["POST /callback<br/>/callback/telegram, /callback/slack"]
     SA["Scheduler API<br/>/api/schedule (CRUD)"]
+    SR["Semantic Recall API<br/>POST /api/memory/semantic-recall"]
   end
 
   subgraph STATE["Persistent Local State"]
@@ -71,6 +74,8 @@ flowchart LR
     CHAT[(~/.clawless/callback-chat-state.json)]
     SCH[(~/.clawless/schedules.json)]
     MEM[(~/.clawless/MEMORY.md)]
+    HIST[(~/.clawless/conversation-history.jsonl)]
+    SEM[(~/.clawless/conversation-semantic-memory.db)]
   end
 
   subgraph OUT["Destinations"]
@@ -85,10 +90,13 @@ flowchart LR
   Q --> ACP
   ACP --> AGENT
   ACP --> MEM
+  Q --> HIST
 
   SA --> CRON
   CRON --> ACP
   CRON --> SCH
+  ACP --> SEM
+  SR --> SEM
 
   CB --> CHAT
   CB --> DEST
@@ -156,18 +164,9 @@ For security, the bot only accepts commands from authorized users. To configure:
    }
    ```
 
-3. **Alternative: Use environment variable**:
-   ```bash
-   TELEGRAM_WHITELIST='["your_username", "another_user"]'
-   ```
-
 ⚠️ **Security Note**: In Telegram mode, `telegramWhitelist` / `TELEGRAM_WHITELIST` must be configured and non-empty or startup will fail. Keep the list small (max 10 users) for safety.
 
-For Slack mode, configure allowed Slack principals (user IDs or emails) with `slackWhitelist` / `SLACK_WHITELIST`.
-
-```bash
-SLACK_WHITELIST='["U01234567", "user@example.com"]'
-```
+For Slack mode, configure allowed Slack principals (user IDs or emails) with `slackWhitelist` in `~/.clawless/config.json`.
 
 ⚠️ **Security Note**: In Slack mode, `slackWhitelist` / `SLACK_WHITELIST` must be configured and non-empty or startup will fail. Keep the list small (max 10 users). Email matching requires OAuth scopes `users:read` and `users:read.email`.
 
@@ -191,18 +190,23 @@ npx clawless
 
 ### Config File (CLI)
 
-On first run, the CLI automatically creates:
+On first run (if no config exists), the CLI opens an interactive config TUI and saves:
 
 ```text
 ~/.clawless/config.json
 ```
 
-with placeholder values, then exits so you can edit it.
+TUI controls:
+- `↑` / `↓`: move between keys
+- `Enter`: edit selected value
+- `←` / `→`: change enum values (for example `messagingPlatform`, `geminiApprovalMode`)
+- `s`: save and exit
+- `q`: quit without saving
 
-After updating placeholders, run again:
+You can also open the config TUI any time with:
 
 ```bash
-clawless
+clawless --config
 ```
 
 You can also use a custom path:
@@ -211,7 +215,7 @@ You can also use a custom path:
 clawless --config /path/to/config.json
 ```
 
-If the custom config path does not exist, a template file is created there as well.
+If the custom config path does not exist, Clawless opens the config TUI (interactive terminals) or creates a template file (non-interactive terminals).
 
 You can still bootstrap from the example file if preferred:
 
@@ -219,57 +223,50 @@ You can still bootstrap from the example file if preferred:
 cp clawless.config.example.json ~/.clawless/config.json
 ```
 
-Environment variables still work and take precedence over config values.
+### Configuration (Recommended)
 
-### Configuration Reference (Consolidated)
+Use `~/.clawless/config.json` as the primary way to configure Clawless.
 
-Clawless supports both JSON config keys and environment variables for runtime settings.
+Recommended flow:
+1. Start `clawless` once to generate `~/.clawless/config.json`.
+2. Edit that file with your platform token, whitelist, and settings.
+3. Run `clawless` again.
 
-- Precedence: `environment variables` > `config file values` > `built-in defaults`
-- Config file path selection is controlled by env/CLI only:
-  - `--config /path/to/config.json`
-  - `AGENT_BRIDGE_CONFIG`
-  - `GEMINI_BRIDGE_CONFIG` (legacy alias)
+Optional (advanced):
+- `clawless --config /path/to/config.json` to use a custom config file.
+- `CLAWLESS_CONFIG=/path/to/config.json` to set config path via env.
+- Env variables can override config values when needed.
 
-#### Config key ↔ environment variable mapping
+#### Minimal config (start here)
 
-| Config key | Environment variable |
-|---|---|
-| `messagingPlatform` | `MESSAGING_PLATFORM` |
-| `telegramToken` | `TELEGRAM_TOKEN` |
-| `telegramWhitelist` | `TELEGRAM_WHITELIST` |
-| `slackBotToken` | `SLACK_BOT_TOKEN` |
-| `slackSigningSecret` | `SLACK_SIGNING_SECRET` |
-| `slackAppToken` | `SLACK_APP_TOKEN` |
-| `slackWhitelist` | `SLACK_WHITELIST` |
-| `timezone` | `TZ` |
-| `typingIntervalMs` | `TYPING_INTERVAL_MS` |
-| `streamUpdateIntervalMs` | `STREAM_UPDATE_INTERVAL_MS` |
-| `geminiCommand` | `GEMINI_COMMAND` |
-| `geminiApprovalMode` | `GEMINI_APPROVAL_MODE` |
-| `geminiModel` | `GEMINI_MODEL` |
-| `acpPermissionStrategy` | `ACP_PERMISSION_STRATEGY` |
-| `geminiTimeoutMs` | `GEMINI_TIMEOUT_MS` |
-| `geminiNoOutputTimeoutMs` | `GEMINI_NO_OUTPUT_TIMEOUT_MS` |
-| `geminiKillGraceMs` | `GEMINI_KILL_GRACE_MS` |
-| `acpPrewarmRetryMs` | `ACP_PREWARM_RETRY_MS` |
-| `acpPrewarmMaxRetries` | `ACP_PREWARM_MAX_RETRIES` |
-| `acpMcpServersJson` | `ACP_MCP_SERVERS_JSON` |
-| `maxResponseLength` | `MAX_RESPONSE_LENGTH` |
-| `acpStreamStdout` | `ACP_STREAM_STDOUT` |
-| `acpDebugStream` | `ACP_DEBUG_STREAM` |
-| `heartbeatIntervalMs` | `HEARTBEAT_INTERVAL_MS` |
-| `callbackHost` | `CALLBACK_HOST` |
-| `callbackPort` | `CALLBACK_PORT` |
-| `callbackAuthToken` | `CALLBACK_AUTH_TOKEN` |
-| `callbackMaxBodyBytes` | `CALLBACK_MAX_BODY_BYTES` |
-| `agentBridgeHome` | `AGENT_BRIDGE_HOME` |
-| `memoryFilePath` | `MEMORY_FILE_PATH` |
-| `memoryMaxChars` | `MEMORY_MAX_CHARS` |
-| `schedulesFilePath` | `SCHEDULES_FILE_PATH` |
+Most users only need a few keys.
 
-Notes:
-- Uppercase env-style keys can also be used directly inside `config.json` if preferred.
+Telegram minimum:
+
+```json
+{
+  "messagingPlatform": "telegram",
+  "telegramToken": "<bot token from BotFather>",
+  "telegramWhitelist": ["your_username"]
+}
+```
+
+Slack minimum:
+
+```json
+{
+  "messagingPlatform": "slack",
+  "slackBotToken": "xoxb-...",
+  "slackSigningSecret": "...",
+  "slackWhitelist": ["U01234567"]
+}
+```
+
+Everything else can stay at defaults.
+
+Full configuration keys and meanings are documented in [doc/CONFIG.md](doc/CONFIG.md).
+
+For deeper runtime behavior and troubleshooting details, see `AGENTS.md`.
 
 ### Run In Background
 
@@ -284,6 +281,8 @@ For production hosting, use any process manager or platform you prefer (for exam
 ## Advanced Docs
 
 For runtime configuration, callback/scheduler APIs, troubleshooting, queue/flow internals, development notes, and security guidance, see `AGENTS.md`.
+
+For memory architecture, retention controls, semantic recall behavior, and troubleshooting, see `doc/MEMORY_SYSTEM.md`.
 
 ## License
 
