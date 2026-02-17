@@ -41,10 +41,8 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `conversationHistoryMaxCharsPerEntry` | `2000` | Max chars stored per user/assistant entry. |
 | `conversationHistoryMaxTotalChars` | `8000` | Max chars used when formatting recap context. |
 | `conversationHistoryRecapTopK` | `4` | Default number of entries returned for recap/semantic API output. |
-| `conversationSemanticRecallEnabled` | `true` | Enable/disable semantic recall features. |
-| `conversationSemanticModelPath` | `hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf` | Embedding model path (supports `hf:` URI). |
-| `conversationSemanticStorePath` | `~/.clawless/conversation-semantic-memory.db` | SQLite semantic embedding store file path. |
+| `conversationSemanticRecallEnabled` | `true` | Enable/disable semantic recall features (SQLite FTS lexical ranking). |
+| `conversationSemanticStorePath` | `~/.clawless/conversation-semantic-memory.db` | SQLite semantic recall store file path. |
 | `conversationSemanticMaxEntries` | `1000` | Max retained semantic entries (FIFO). |
-| `conversationSemanticMaxCharsPerEntry` | `4000` | Max chars per entry used to build embeddings. |
-| `conversationSemanticTimeoutMs` | `15000` | Timeout for semantic embed/query operations. |
+| `conversationSemanticMaxCharsPerEntry` | `4000` | Max chars per entry used for lexical recall indexing. |
 | `schedulesFilePath` | `~/.clawless/schedules.json` | Scheduler persistence file path. |

@@ -46,11 +46,9 @@ const ENV_KEY_MAP: Record<string, string> = {
   conversationHistoryMaxTotalChars: 'CONVERSATION_HISTORY_MAX_TOTAL_CHARS',
   conversationHistoryRecapTopK: 'CONVERSATION_HISTORY_RECAP_TOP_K',
   conversationSemanticRecallEnabled: 'CONVERSATION_SEMANTIC_RECALL_ENABLED',
-  conversationSemanticModelPath: 'CONVERSATION_SEMANTIC_MODEL_PATH',
   conversationSemanticStorePath: 'CONVERSATION_SEMANTIC_STORE_PATH',
   conversationSemanticMaxEntries: 'CONVERSATION_SEMANTIC_MAX_ENTRIES',
   conversationSemanticMaxCharsPerEntry: 'CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY',
-  conversationSemanticTimeoutMs: 'CONVERSATION_SEMANTIC_TIMEOUT_MS',
   schedulesFilePath: 'SCHEDULES_FILE_PATH',
 };
 
@@ -96,11 +94,9 @@ const DEFAULT_CONFIG_TEMPLATE = {
   conversationHistoryMaxTotalChars: 8000,
   conversationHistoryRecapTopK: 3,
   conversationSemanticRecallEnabled: true,
-  conversationSemanticModelPath: 'hf:ggml-org/embeddinggemma-300m-qat-q8_0-GGUF/embeddinggemma-300m-qat-Q8_0.gguf',
   conversationSemanticStorePath: '~/.clawless/conversation-semantic-memory.db',
   conversationSemanticMaxEntries: 1000,
   conversationSemanticMaxCharsPerEntry: 4000,
-  conversationSemanticTimeoutMs: 15000,
   schedulesFilePath: '~/.clawless/schedules.json',
 };
 
