@@ -20,7 +20,19 @@ Clawless is designed so your messaging layer and automation layer stay stable wh
 ### Supported CLI Agents
 
 - **Gemini CLI** (default) - Google's Gemini CLI with ACP support
-- **OpenCode** - Alternative ACP-capable agent runtime
+- **OpenCode** - Powerful alternative ACP-capable agent backend
+
+#### Switching Agents
+
+You can choose your preferred backend agent by setting the `cliAgent` key in your `~/.clawless/config.json`:
+
+```json
+{
+  "cliAgent": "opencode"
+}
+```
+
+Or by setting the environment variable `CLI_AGENT=opencode`.
 
 Adding new agents is straightforward - see the `core/agents/` directory for implementation examples.
 
@@ -41,7 +53,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 
 ## Features
 
-- 🔀 **Bring Your Own Agent Runtime**: Keep messaging/callback/scheduler UX while choosing your preferred local ACP-capable CLI
+- 🔀 **Bring Your Own Agent Runtime**: Keep messaging/callback/scheduler UX while choosing your preferred local ACP-capable CLI (Gemini CLI and OpenCode supported out-of-box)
 - 🔌 **Multi-Platform Interface Layer**: Telegram and Slack support
 - 🤖 **Multiple Messaging Platforms**: Interact with your local agent runtime through Telegram or Slack
 - ⌨️ **Typing Status UX**: Shows typing indicator while the agent is processing (platform-dependent)
@@ -111,6 +123,25 @@ flowchart LR
   CB --> DEST
   Q --> CHAT
   Q --> DEST
+
+  %% Color Styling
+  style IN fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+  style CORE fill:#fff3e0,stroke:#e65100,stroke-width:2px
+  style API fill:#e8f5e9,stroke:#1b5e20,stroke-width:2px
+  style STATE fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+  style OUT fill:#fce4ec,stroke:#880e4f,stroke-width:2px
+
+  classDef inboundNode fill:#b3e5fc,stroke:#01579b
+  classDef coreNode fill:#ffe0b2,stroke:#e65100
+  classDef apiNode fill:#c8e6c9,stroke:#1b5e20
+  classDef stateNode fill:#e1bee7,stroke:#4a148c
+  classDef outNode fill:#f8bbd0,stroke:#880e4f
+
+  class TG,SL inboundNode
+  class Q,ACP,CRON coreNode
+  class CB,SA,SR apiNode
+  class CHAT,SCH,MEM,HIST,SEM stateNode
+  class DEST,AGENT outNode
 ```
 
 The bridge:
@@ -125,7 +156,7 @@ The bridge:
 - **Node.js** 18.0.0 or higher
 - **A local ACP-capable agent CLI** installed and configured:
   - **Gemini CLI** (default) - Follow [installation instructions](https://github.com/google/generative-ai-cli)
-  - **OpenCode** - An alternative ACP-capable CLI agent
+  - **OpenCode** - An alternative ACP-capable CLI agent (ensure `opencode` is in your PATH)
 - **Platform credentials** (choose one):
   - **Telegram**: Bot Token from [@BotFather](https://t.me/BotFather)
   - **Slack**: Bot Token, Signing Secret, and optionally App Token from [api.slack.com/apps](https://api.slack.com/apps)
