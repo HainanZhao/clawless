@@ -25,11 +25,16 @@ export function ensureMemoryFile(memoryFilePath: string, logInfo: LogInfoFn) {
 export function readMemoryContext(memoryFilePath: string, memoryMaxChars: number, logInfo: LogInfoFn) {
   try {
     const content = fs.readFileSync(memoryFilePath, 'utf8');
-    if (content.length <= memoryMaxChars) {
-      return content;
+    const trimmed = content.trim();
+    if (!trimmed) {
+      return '';
     }
 
-    return content.slice(-memoryMaxChars);
+    if (trimmed.length <= memoryMaxChars) {
+      return trimmed;
+    }
+
+    return trimmed.slice(-memoryMaxChars);
   } catch (error: any) {
     logInfo('Unable to read memory file; continuing without memory context', {
       memoryFilePath,
@@ -92,14 +97,15 @@ export function buildPromptWithMemory(params: {
     callbackAuthToken
       ? '- Scheduler auth is enabled: include `x-callback-token` (or bearer token) header when creating requests.'
       : '- Scheduler auth is disabled unless CALLBACK_AUTH_TOKEN is configured.',
-    '',
-    'Current memory context:',
-    memoryContext,
   ];
 
+  if (memoryContext && memoryContext.trim().length > 0) {
+    parts.push('', 'Current memory context:', memoryContext);
+  }
+
   // Inject conversation history if available
-  if (conversationContext) {
-    parts.push('', 'Recent conversation history:', conversationContext);
+  if (conversationContext && conversationContext.trim().length > 0) {
+    parts.push('', 'Relevant older conversation recap:', conversationContext);
   }
 
   parts.push('', 'User message:', userPrompt);

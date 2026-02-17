@@ -40,6 +40,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 - 🔒 **Privacy**: Runs on your hardware, you control data flow
 - 💾 **Persistent Context**: Maintains local session unlike standard API calls
 - 🧠 **Conversation Memory**: Automatically tracks and injects relevant conversation history into prompts for context-aware responses
+- 🧬 **Semantic Recall (Optional)**: Uses local `node-llama-cpp` embeddings for semantic conversation recap retrieval with automatic fallback
 - 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
 - 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API
@@ -272,11 +273,20 @@ Clawless supports both JSON config keys and environment variables for runtime se
 | `conversationHistoryMaxEntries` | `CONVERSATION_HISTORY_MAX_ENTRIES` |
 | `conversationHistoryMaxCharsPerEntry` | `CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY` |
 | `conversationHistoryMaxTotalChars` | `CONVERSATION_HISTORY_MAX_TOTAL_CHARS` |
+| `conversationHistoryRecapTopK` | `CONVERSATION_HISTORY_RECAP_TOP_K` |
 | `conversationHistoryMaxRecentEntries` | `CONVERSATION_HISTORY_MAX_RECENT_ENTRIES` |
+| `conversationSemanticRecallEnabled` | `CONVERSATION_SEMANTIC_RECALL_ENABLED` |
+| `conversationSemanticModelPath` | `CONVERSATION_SEMANTIC_MODEL_PATH` |
+| `conversationSemanticStorePath` | `CONVERSATION_SEMANTIC_STORE_PATH` |
+| `conversationSemanticMaxEntries` | `CONVERSATION_SEMANTIC_MAX_ENTRIES` |
+| `conversationSemanticMaxCharsPerEntry` | `CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY` |
+| `conversationSemanticTimeoutMs` | `CONVERSATION_SEMANTIC_TIMEOUT_MS` |
 | `schedulesFilePath` | `SCHEDULES_FILE_PATH` |
 
 Notes:
 - Uppercase env-style keys can also be used directly inside `config.json` if preferred.
+- `CONVERSATION_HISTORY_MAX_RECENT_ENTRIES` is kept as a backward-compatible fallback when `CONVERSATION_HISTORY_RECAP_TOP_K` is not set.
+- Semantic recall is optional and enabled by default; it uses `node-llama-cpp` local embeddings and falls back to TF-IDF recap if embedding recall is unavailable.
 
 ### Run In Background
 
@@ -291,6 +301,8 @@ For production hosting, use any process manager or platform you prefer (for exam
 ## Advanced Docs
 
 For runtime configuration, callback/scheduler APIs, troubleshooting, queue/flow internals, development notes, and security guidance, see `AGENTS.md`.
+
+For memory architecture, retention controls, semantic recall behavior, and troubleshooting, see `MEMORY_SYSTEM.md`.
 
 ## License
 

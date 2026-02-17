@@ -19,7 +19,7 @@ type CreateAcpRuntimeParams = {
   acpPrewarmRetryMs: number;
   geminiKillGraceMs: number;
   stderrTailMaxChars: number;
-  buildPromptWithMemory: (userPrompt: string) => string;
+  buildPromptWithMemory: (userPrompt: string) => Promise<string>;
   ensureMemoryFile: () => void;
   buildPermissionResponse: (options: any, strategy: string) => any;
   noOpAcpFileOperation: (params: any) => any;
@@ -377,7 +377,7 @@ export function createAcpRuntime({
       sessionId: acpSessionId,
       promptLength: promptText.length,
     });
-    const promptForGemini = buildPromptWithMemory(promptText);
+    const promptForGemini = await buildPromptWithMemory(promptText);
 
     return new Promise<string>((resolve, reject) => {
       let fullResponse = '';
