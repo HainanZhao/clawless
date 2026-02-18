@@ -88,7 +88,19 @@ if (MESSAGING_PLATFORM === 'slack') {
 
 // CLI Agent configuration
 const CLI_AGENT = (process.env.CLI_AGENT || 'gemini').trim().toLowerCase();
-const agentCommand = CLI_AGENT === 'opencode' ? 'opencode' : 'gemini';
+
+let agentCommand: string;
+switch (CLI_AGENT) {
+  case 'opencode':
+    agentCommand = 'opencode';
+    break;
+  case 'claude':
+    agentCommand = 'claude-agent-acp';
+    break;
+  default:
+    agentCommand = 'gemini';
+    break;
+}
 const CLI_AGENT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_TIMEOUT_MS || '1200000', 10);
 const CLI_AGENT_NO_OUTPUT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_NO_OUTPUT_TIMEOUT_MS || '300000', 10);
 const CLI_AGENT_APPROVAL_MODE = process.env.CLI_AGENT_APPROVAL_MODE || 'yolo';

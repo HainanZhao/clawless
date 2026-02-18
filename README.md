@@ -4,7 +4,7 @@ Clawless is an interface bridge built around one core idea: **Bring Your Own Age
 
 Instead of forcing a built-in runtime, Clawless lets you keep your preferred local ACP-capable CLI and adds a reliable interface layer, callbacks, and scheduling on top.
 
-Supported CLI agents: **Gemini CLI** (default), **OpenCode**
+Supported CLI agents: **Gemini CLI** (default), **OpenCode**, **Claude Code**
 
 Today, Telegram and Slack are supported interface adapters.
 
@@ -20,8 +20,7 @@ Clawless is designed so your messaging layer and automation layer stay stable wh
 ### Supported CLI Agents
 
 - **Gemini CLI** (default) - Google's Gemini CLI with ACP support
-- **OpenCode** - Powerful alternative ACP-capable agent backend
-
+- **OpenCode** - Powerful alternative ACP-capable agent backend- **Claude Code** - Anthropic's Claude Code CLI with ACP support
 #### Switching Agents
 
 You can choose your preferred backend agent by setting the `cliAgent` key in your `~/.clawless/config.json`:
@@ -32,7 +31,7 @@ You can choose your preferred backend agent by setting the `cliAgent` key in you
 }
 ```
 
-Or by setting the environment variable `CLI_AGENT=opencode`.
+Or by setting the environment variable `CLI_AGENT=opencode` or `CLI_AGENT=claude`.
 
 Adding new agents is straightforward - see the `core/agents/` directory for implementation examples.
 
@@ -53,7 +52,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 
 ## Features
 
-- 🔀 **Bring Your Own Agent Runtime**: Keep messaging/callback/scheduler UX while choosing your preferred local ACP-capable CLI (Gemini CLI and OpenCode supported out-of-box)
+- 🔀 **Bring Your Own Agent Runtime**: Keep messaging/callback/scheduler UX while choosing your preferred local ACP-capable CLI (Gemini CLI, OpenCode, and Claude Code supported out-of-box)
 - 🔌 **Multi-Platform Interface Layer**: Telegram and Slack support
 - 🤖 **Multiple Messaging Platforms**: Interact with your local agent runtime through Telegram or Slack
 - ⌨️ **Typing Status UX**: Shows typing indicator while the agent is processing (platform-dependent)
@@ -79,7 +78,7 @@ flowchart LR
   subgraph CORE["Clawless Core"]
     direction TB
     Q["Queue + Single Worker<br/>Live Message Streaming"]
-    ACP["ACP Runtime<br/>Gemini CLI (default) or OpenCode"]
+    ACP["ACP Runtime<br/>Gemini CLI (default), OpenCode, or Claude Code"]
     CRON[Cron Scheduler / Job Runner]
   end
 
@@ -157,6 +156,7 @@ The bridge:
 - **A local ACP-capable agent CLI** installed and configured:
   - **Gemini CLI** (default) - Follow [installation instructions](https://github.com/google/generative-ai-cli)
   - **OpenCode** - An alternative ACP-capable CLI agent (ensure `opencode` is in your PATH)
+  - **Claude Code** - Anthropic's Claude Code CLI (ensure `claude` is in your PATH)
 - **Platform credentials** (choose one):
   - **Telegram**: Bot Token from [@BotFather](https://t.me/BotFather)
   - **Slack**: Bot Token, Signing Secret, and optionally App Token from [api.slack.com/apps](https://api.slack.com/apps)

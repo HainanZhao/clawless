@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import blessed from 'blessed';
+import { SUPPORTED_AGENTS } from '../core/agents/agentFactory.js';
 
 type ConfigValue = string | number | boolean | string[];
 
@@ -9,7 +10,7 @@ type ConfigField = {
   label: string;
   description: string;
   valueType: 'string' | 'number' | 'boolean' | 'stringArray' | 'enum';
-  enumValues?: string[];
+  enumValues?: readonly string[];
   isSecret?: boolean;
   isRequired: (config: Record<string, unknown>) => boolean;
   isVisible: (config: Record<string, unknown>) => boolean;
@@ -117,7 +118,7 @@ const CONFIG_FIELDS: ConfigField[] = [
     label: 'cliAgent',
     description: 'CLI agent backend to run.',
     valueType: 'enum',
-    enumValues: ['gemini', 'opencode'],
+    enumValues: SUPPORTED_AGENTS,
     isRequired: () => true,
     isVisible: () => true,
     order: 0,
