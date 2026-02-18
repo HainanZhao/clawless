@@ -59,6 +59,13 @@ export abstract class BaseCliAgent {
   }
 
   /**
+   * Get MCP servers to pass to ACP session.
+   * Override this in subclasses to provide MCP server configurations.
+   * Returns array of MCP server configs in ACP format.
+   */
+  getMcpServersForAcp?(): unknown[];
+
+  /**
    * Get agent capabilities
    */
   abstract getCapabilities(): CliAgentCapabilities;

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.9] - 2026-02-18
+
+### Added
+- MCP server support in ACP mode for all agents (Gemini, OpenCode, Claude Code)
+  - Reads MCP configs from agent settings files (`~/.gemini/settings.json`, `~/.opencode/settings.json`, `~/.claude/settings.json`)
+  - Passes MCP server configs to ACP session for tool access
+
+### Fixed
+- MCP tools not accessible in ACP mode - Now passes MCP server configs to ACP session for all agents
+
+---
+
 ## [0.3.8] - 2026-02-18
 
 ### Added

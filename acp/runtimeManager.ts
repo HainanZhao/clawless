@@ -4,6 +4,11 @@ import * as acp from '@agentclientprotocol/sdk';
 import { getMcpServersForSession } from './mcpServerHelpers.js';
 import type { BaseCliAgent } from '../core/agents/index.js';
 
+// Extend BaseCliAgent interface to include optional getMcpServersForAcp method
+interface CliAgentWithMcp extends BaseCliAgent {
+  getMcpServersForAcp?(): unknown[];
+}
+
 type LogInfoFn = (message: string, details?: unknown) => void;
 type GetErrorMessageFn = (error: unknown, fallbackMessage?: string) => string;
 
@@ -217,11 +222,30 @@ export function createAcpRuntime({
 
     acpInitPromise = (async () => {
       const args = buildAgentAcpArgs();
-      const { source: mcpServersSource, mcpServers } = getMcpServersForSession({
-        logInfo,
-        getErrorMessage,
-        invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON; using empty mcpServers array',
-      });
+
+      // First, try to get MCP servers from the agent (e.g., from Gemini settings)
+      let mcpServers: unknown[] = [];
+      let mcpServersSource = 'agent-config';
+
+      const agentWithMcp = cliAgent as CliAgentWithMcp;
+      if (typeof agentWithMcp.getMcpServersForAcp === 'function') {
+        mcpServers = agentWithMcp.getMcpServersForAcp();
+        logInfo(`Using MCP servers from agent configuration`, {
+          count: mcpServers.length,
+        });
+      }
+
+      // Fall back to environment variable if agent didn't provide MCP servers
+      if (mcpServers.length === 0) {
+        const envResult = getMcpServersForSession({
+          logInfo,
+          getErrorMessage,
+          invalidEnvMessage: 'Invalid ACP_MCP_SERVERS_JSON; using empty mcpServers array',
+        });
+        mcpServers = envResult.mcpServers;
+        mcpServersSource = envResult.source;
+      }
+
       const mcpServerNames = mcpServers
         .map((server) => {
           if (server && typeof server === 'object' && 'name' in server) {

@@ -1,4 +1,5 @@
 import { BaseCliAgent, type CliAgentCapabilities } from './BaseCliAgent.js';
+import { getClaudeMcpServersForAcp } from '../../utils/claudeMcpHelpers.js';
 
 /**
  * Claude Agent ACP adapter implementation.
@@ -39,6 +40,8 @@ export class ClaudeCodeAgent extends BaseCliAgent {
       }
     }
 
+    // MCP server configs are passed via getMcpServersForAcp() to the ACP session
+
     // Use permission-mode for Claude Agent
     const permissionMode = this.mapApprovalMode(this.config.approvalMode);
     if (permissionMode) {
@@ -50,6 +53,13 @@ export class ClaudeCodeAgent extends BaseCliAgent {
     }
 
     return args;
+  }
+
+  /**
+   * Provide MCP server configurations from Claude settings.
+   */
+  getMcpServersForAcp(): unknown[] {
+    return getClaudeMcpServersForAcp();
   }
 
   getDisplayName(): string {

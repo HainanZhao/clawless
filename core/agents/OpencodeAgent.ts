@@ -1,4 +1,5 @@
 import { BaseCliAgent, type CliAgentCapabilities } from './BaseCliAgent.js';
+import { getOpenCodeMcpServersForAcp } from '../../utils/opencodeMcpHelpers.js';
 
 /**
  * OpenCode CLI agent implementation.
@@ -11,7 +12,9 @@ export class OpencodeAgent extends BaseCliAgent {
 
   buildAcpArgs(): string[] {
     const args = ['acp'];
-    // Add MCP servers if configured via environment variable
+
+    // MCP server configs are passed via getMcpServersForAcp() to the ACP session
+    // Also check environment variable as fallback
     const raw = process.env.ACP_MCP_SERVERS_JSON;
     if (raw) {
       try {
@@ -24,6 +27,13 @@ export class OpencodeAgent extends BaseCliAgent {
       }
     }
     return args;
+  }
+
+  /**
+   * Provide MCP server configurations from OpenCode settings.
+   */
+  getMcpServersForAcp(): unknown[] {
+    return getOpenCodeMcpServersForAcp();
   }
 
   getDisplayName(): string {
