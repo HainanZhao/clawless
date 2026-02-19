@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.10] - 2026-02-19
+
+### Fixed
+- Fixed message chunking debounce causing freezes - Now properly resets timer on each chunk using lodash debounce
+
+### Changed
+- Replaced hand-rolled debounce logic with lodash-es debounce for reliability
+
+---
+
 ## [0.3.9] - 2026-02-18
 
 ### Added
