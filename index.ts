@@ -150,7 +150,7 @@ const CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY = parseInt(
 // Typing indicator refresh interval (platform typing state expires quickly)
 const TYPING_INTERVAL_MS = parseInt(process.env.TYPING_INTERVAL_MS || '4000', 10);
 const STREAM_UPDATE_INTERVAL_MS = parseInt(process.env.STREAM_UPDATE_INTERVAL_MS || '5000', 10);
-const MESSAGE_GAP_THRESHOLD_MS = 15000; // Start a new message if gap between chunks > 5s
+const MESSAGE_GAP_THRESHOLD_MS = parseInt(process.env.MESSAGE_GAP_THRESHOLD_MS || '15000', 10);
 
 // Maximum response length to prevent memory issues
 const MAX_RESPONSE_LENGTH = parseInt(process.env.MAX_RESPONSE_LENGTH || '4000', 10);

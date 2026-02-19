@@ -9,6 +9,7 @@
   "timezone": "UTC",
   "typingIntervalMs": 4000,
   "streamUpdateIntervalMs": 5000,
+  "messageGapThresholdMs": 15000,
   "cliAgent": "gemini",
   "cliAgentApprovalMode": "yolo",
   "cliAgentModel": "",

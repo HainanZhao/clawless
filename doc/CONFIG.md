@@ -14,6 +14,7 @@ This document lists `config.json` keys, defaults, and what each setting controls
 | `timezone` | `UTC` | Timezone used by scheduler cron execution. |
 | `typingIntervalMs` | `4000` | Typing indicator refresh interval while processing. |
 | `streamUpdateIntervalMs` | `5000` | Minimum interval between progressive streaming message updates. |
+| `messageGapThresholdMs` | `15000` | Gap duration (ms) that triggers a message split. |
 | `cliAgent` | `gemini` | CLI agent type to use (`gemini` or `opencode`). |
 | `cliAgentApprovalMode` | `yolo` | Agent approval mode (`default`, `auto_edit`, `yolo`, `plan`). |
 | `cliAgentModel` | `""` | Optional model override for the agent. |

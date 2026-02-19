@@ -62,6 +62,7 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 - 🧠 **Conversation History (Local JSONL)**: Persists chat turns in a human-readable local JSONL file with bounded retention
 - 🧬 **Semantic Recall (On-Demand)**: Uses local SQLite FTS lexical ranking and can be queried via local API when extra context is needed
 - 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
+- 🧩 **Smart Message Splitting**: Automatically detects long pauses in the agent's stream and splits the response into multiple messages for better readability
 - 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API
 

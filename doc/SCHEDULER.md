@@ -299,7 +299,7 @@ The configured local CLI is aware of the scheduler API through the system prompt
 
 No additional environment variables are required. The scheduler uses the existing callback server configuration:
 
-- `CALLBACK_HOST` - Host for callback server (default: 127.0.0.1)
+- `CALLBACK_HOST` - Host for callback server (default: localhost)
 - `CALLBACK_PORT` - Port for callback server (default: 8788)
 - `CALLBACK_AUTH_TOKEN` - Optional authentication token
 - `TZ` - Timezone for cron schedules (default: UTC)

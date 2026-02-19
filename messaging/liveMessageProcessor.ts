@@ -34,13 +34,12 @@ export async function processSingleTelegramMessage({
   let liveMessageId: string | number | undefined;
   let previewBuffer = '';
   let flushTimer: NodeJS.Timeout | null = null;
-  let lastFlushAt = Date.now();
-  let lastChunkAt = 0;
-  let finalizedViaLiveMessage = false;
+  let lastFlushAt = 0;
   let startingLiveMessage: Promise<void> | null = null;
   let promptCompleted = false;
+  let anyMessageStarted = false;
 
-  const clearFlushTimer = () => {
+  const clearTimer = () => {
     if (flushTimer) {
       clearTimeout(flushTimer);
       flushTimer = null;
@@ -54,38 +53,29 @@ export async function processSingleTelegramMessage({
     return `${previewBuffer.slice(0, maxResponseLength - 1)}…`;
   };
 
-  const flushPreview = async (force = false, allowStart = true) => {
-    if (finalizedViaLiveMessage) {
-      return;
-    }
-
-    const now = Date.now();
-    if (!force && now - lastFlushAt < streamUpdateIntervalMs) {
-      return;
-    }
-
-    lastFlushAt = now;
+  const flushPreview = async (isFinal = false) => {
     const text = previewText();
-    if (!text) {
+    if (!text && !isFinal) {
       return;
     }
+
+    lastFlushAt = Date.now();
 
     if (!liveMessageId) {
-      if (!allowStart) {
-        return;
-      }
-
       if (startingLiveMessage) {
         await startingLiveMessage;
       } else {
         startingLiveMessage = (async () => {
           try {
             liveMessageId = await messageContext.startLiveMessage(text || '…');
-          } catch (_) {
-            liveMessageId = undefined;
+            anyMessageStarted = true;
+          } catch (error: any) {
+            logInfo('Failed to start live message', {
+              requestId: messageRequestId,
+              error: getErrorMessage(error),
+            });
           }
         })();
-
         try {
           await startingLiveMessage;
         } finally {
@@ -95,123 +85,66 @@ export async function processSingleTelegramMessage({
     }
 
     if (!liveMessageId) {
+      if (isFinal && (text || !anyMessageStarted)) {
+        await messageContext.sendText(text || 'No response received.');
+        anyMessageStarted = true;
+        previewBuffer = '';
+      }
       return;
     }
 
     try {
-      await messageContext.updateLiveMessage(liveMessageId, text);
-      if (acpDebugStream) {
-        logInfo('Live preview updated', {
-          requestId: messageRequestId,
-          previewLength: text.length,
-        });
+      if (isFinal) {
+        await messageContext.finalizeLiveMessage(liveMessageId, text || 'No response received.');
+        liveMessageId = undefined;
+        previewBuffer = '';
+      } else if (text) {
+        await messageContext.updateLiveMessage(liveMessageId, text);
+        if (acpDebugStream) {
+          logInfo('Live preview updated', {
+            requestId: messageRequestId,
+            previewLength: text.length,
+          });
+        }
       }
     } catch (error: any) {
       const errorMessage = getErrorMessage(error).toLowerCase();
       if (!errorMessage.includes('message is not modified')) {
-        logInfo('Live preview update skipped', {
+        logInfo('Live preview update failed', {
           requestId: messageRequestId,
           error: getErrorMessage(error),
         });
       }
     }
-  };
-
-  const scheduleFlush = () => {
-    if (flushTimer) {
-      return;
-    }
-
-    const dueIn = Math.max(0, streamUpdateIntervalMs - (Date.now() - lastFlushAt));
-    flushTimer = setTimeout(async () => {
-      flushTimer = null;
-      await flushPreview(true);
-    }, dueIn);
-  };
-
-  const finalizeCurrentMessage = async () => {
-    if (!liveMessageId) {
-      return;
-    }
-
-    if (startingLiveMessage) {
-      try {
-        await startingLiveMessage;
-      } catch (_) {}
-    }
-
-    clearFlushTimer();
-    await flushPreview(true, false);
-
-    try {
-      const text = previewText();
-      await messageContext.finalizeLiveMessage(liveMessageId, text);
-      if (acpDebugStream) {
-        logInfo('Finalized message due to long gap', {
-          requestId: messageRequestId,
-          messageLength: text.length,
-        });
-      }
-    } catch (error: any) {
-      logInfo('Failed to finalize message on gap', {
-        requestId: messageRequestId,
-        error: getErrorMessage(error),
-      });
-    }
-
-    liveMessageId = undefined;
-    previewBuffer = '';
-    lastFlushAt = Date.now();
-    startingLiveMessage = null;
   };
 
   try {
     const fullResponse = await runAcpPrompt(messageContext.text, async (chunk) => {
+      previewBuffer += chunk;
       const now = Date.now();
-      const gapSinceLastChunk = lastChunkAt > 0 ? now - lastChunkAt : 0;
 
-      if (gapSinceLastChunk > messageGapThresholdMs && liveMessageId && previewBuffer.trim()) {
-        await finalizeCurrentMessage();
+      // Periodic live update (no timer needed)
+      if (now - lastFlushAt >= streamUpdateIntervalMs) {
+        void flushPreview(false);
       }
 
-      lastChunkAt = now;
-      previewBuffer += chunk;
-      void scheduleFlush();
+      // Single debounce timer for gap/finalization
+      if (flushTimer) clearTimeout(flushTimer);
+      flushTimer = setTimeout(() => {
+        flushTimer = null;
+        void flushPreview(true);
+      }, messageGapThresholdMs);
     });
     promptCompleted = true;
 
-    clearFlushTimer();
+    clearTimer();
+
+    // Fallback for non-streaming response
+    if (!anyMessageStarted && !previewBuffer && fullResponse) {
+      previewBuffer = fullResponse;
+    }
+
     await flushPreview(true);
-
-    if (startingLiveMessage) {
-      try {
-        await startingLiveMessage;
-      } catch (_) {}
-    }
-
-    if (liveMessageId) {
-      try {
-        await messageContext.finalizeLiveMessage(liveMessageId, fullResponse || 'No response received.');
-        finalizedViaLiveMessage = true;
-      } catch (error: any) {
-        finalizedViaLiveMessage = true;
-        logInfo('Live message finalize failed; keeping streamed message as final output', {
-          requestId: messageRequestId,
-          error: getErrorMessage(error),
-        });
-      }
-    }
-
-    if (!finalizedViaLiveMessage && acpDebugStream) {
-      logInfo('Sending final response', {
-        requestId: messageRequestId,
-        responseLength: (fullResponse || '').length,
-      });
-    }
-
-    if (!finalizedViaLiveMessage) {
-      await messageContext.sendText(fullResponse || 'No response received.');
-    }
 
     // Track conversation history after successful completion
     if (onConversationComplete && fullResponse) {
@@ -225,8 +158,8 @@ export async function processSingleTelegramMessage({
       }
     }
   } finally {
-    clearFlushTimer();
-    if (liveMessageId && !finalizedViaLiveMessage && !promptCompleted) {
+    clearTimer();
+    if (liveMessageId && !promptCompleted) {
       try {
         await messageContext.removeMessage(liveMessageId);
       } catch (_) {}
