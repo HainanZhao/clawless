@@ -53,16 +53,13 @@ If you have tried heavier all-in-one agent frameworks, Clawless is the minimal a
 ## Features
 
 - 🔀 **Bring Your Own Agent Runtime**: Keep messaging/callback/scheduler UX while choosing your preferred local ACP-capable CLI (Gemini CLI, OpenCode, and Claude Code supported out-of-box)
-- 🔌 **Multi-Platform Interface Layer**: Telegram and Slack support
 - 🤖 **Multiple Messaging Platforms**: Interact with your local agent runtime through Telegram or Slack
-- ⌨️ **Typing Status UX**: Shows typing indicator while the agent is processing (platform-dependent)
 - 🛠️ **Rich Tool Support**: Leverages MCP (Model Context Protocol) servers connected to your local CLI runtime
 - 🔒 **Privacy**: Runs on your hardware, you control data flow
 - 💾 **Persistent Context**: Maintains local session unlike standard API calls
 - 🧠 **Conversation History (Local JSONL)**: Persists chat turns in a human-readable local JSONL file with bounded retention
 - 🧬 **Semantic Recall (On-Demand)**: Uses local SQLite FTS lexical ranking and can be queried via local API when extra context is needed
-- 📬 **Sequential Queueing**: Processes one message at a time to avoid overlap and races
-- 🔔 **Local Callback Endpoint**: Accepts localhost HTTP POST requests and forwards payloads to your messaging platform
+- ⚡ **Asynchronous Hybrid Mode**: Intelligently decides between immediate answers (QUICK) and background tasks (ASYNC) for tool-heavy or long-running operations.
 - ⏰ **Cron Scheduler**: Schedule tasks to run at specific times or on recurring basis via REST API
 
 ## Architecture
