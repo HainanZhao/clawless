@@ -4,8 +4,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import dotenv from 'dotenv';
 import { runConfigTui } from './configTui.js';
-import { getConfig } from '../utils/config.js';
+import { getConfig, resetConfig } from '../utils/config.js';
 
 const ENV_KEY_MAP: Record<string, string> = {
   messagingPlatform: 'MESSAGING_PLATFORM',
@@ -274,6 +275,8 @@ function loadConfigFile(configPath: string) {
 }
 
 async function main() {
+  dotenv.config();
+
   const args = parseArgs(process.argv.slice(2));
 
   if (args.help) {
@@ -305,16 +308,14 @@ async function main() {
     process.exit(0);
   }
 
-  const memoryState = ensureMemoryFromEnv();
-  logMemoryFileCreation(memoryState);
-
   const loadedConfigPath = loadConfigFile(args.configPath);
   if (loadedConfigPath) {
     console.log(`[clawless] Loaded config: ${loadedConfigPath}`);
+    resetConfig();
   }
 
-  const postConfigMemoryState = ensureMemoryFromEnv();
-  logMemoryFileCreation(postConfigMemoryState);
+  const memoryState = ensureMemoryFromEnv();
+  logMemoryFileCreation(memoryState);
 
   const entryModuleUrl = new URL('../index.js', import.meta.url).href;
   await import(entryModuleUrl);

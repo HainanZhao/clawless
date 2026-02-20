@@ -59,9 +59,13 @@ const configSchema = z.object({
 
 export type Config = z.infer<typeof configSchema>;
 
-let cachedConfig: any = null;
+let cachedConfig: Config | null = null;
 
-export function getConfig() {
+export function resetConfig() {
+  cachedConfig = null;
+}
+
+export function getConfig(): Config {
   if (cachedConfig) return cachedConfig;
 
   const result = configSchema.safeParse(process.env);
