@@ -142,6 +142,6 @@ export abstract class BaseCliAgent {
    * Get the grace period for process termination
    */
   getKillGraceMs(): number {
-    return this.config.killGraceMs ?? 5000;
+    return this.config.killGraceMs ?? 10000;
   }
 }

@@ -10,6 +10,17 @@ export class OpencodeAgent extends BaseCliAgent {
     return this.config.command;
   }
 
+  buildPromptArgs(promptText: string): string[] {
+    const args = ['run'];
+
+    if (this.config.model) {
+      args.push('-m', this.config.model);
+    }
+
+    args.push(promptText);
+    return args;
+  }
+
   buildAcpArgs(): string[] {
     const args = ['acp'];
 

@@ -63,7 +63,7 @@ Instructions:
 
 Response Format:
 - "[MODE: QUICK] " followed by your immediate answer
-- "[MODE: ASYNC] " followed by a brief confirmation (e.g. "I'll start that background task...")
+- "[MODE: ASYNC] " followed by a specific task description of what will be done (this text becomes the background agent's instruction — include relevant context such as file paths, flags, or scope from the user request so the background agent has everything it needs)
 
 User Request: "${userRequest}"`;
 }

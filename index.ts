@@ -105,7 +105,7 @@ const CLI_AGENT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_TIMEOUT_MS || '12000
 const CLI_AGENT_NO_OUTPUT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_NO_OUTPUT_TIMEOUT_MS || '300000', 10);
 const CLI_AGENT_APPROVAL_MODE = process.env.CLI_AGENT_APPROVAL_MODE || 'yolo';
 const CLI_AGENT_MODEL = process.env.CLI_AGENT_MODEL || '';
-const CLI_AGENT_KILL_GRACE_MS = parseInt(process.env.CLI_AGENT_KILL_GRACE_MS || '5000', 10);
+const CLI_AGENT_KILL_GRACE_MS = parseInt(process.env.CLI_AGENT_KILL_GRACE_MS || '10000', 10);
 const ACP_PERMISSION_STRATEGY = process.env.ACP_PERMISSION_STRATEGY || 'allow_once';
 const ACP_STREAM_STDOUT = String(process.env.ACP_STREAM_STDOUT || '').toLowerCase() === 'true';
 const ACP_DEBUG_STREAM = String(process.env.ACP_DEBUG_STREAM || '').toLowerCase() === 'true';
@@ -264,7 +264,7 @@ function validateCliAgentOrExit() {
 
 const handleScheduledJob = createScheduledJobHandler({
   logInfo,
-  buildPromptWithMemory,
+  buildPromptWithMemory: buildScheduledJobPrompt,
   runScheduledPromptWithTempAcp,
   resolveTargetChatId: () => resolveChatId(lastIncomingChatId),
   sendTextToChat: (chatId, text) => messagingClient.sendTextToChat(chatId, text),
@@ -323,6 +323,22 @@ async function buildPromptWithMemory(userPrompt: string): Promise<string> {
     callbackAuthToken: CALLBACK_AUTH_TOKEN,
     memoryContext,
     messagingPlatform: MESSAGING_PLATFORM,
+  });
+}
+
+async function buildScheduledJobPrompt(userPrompt: string): Promise<string> {
+  const memoryContext = readMemoryContext(MEMORY_FILE_PATH, MEMORY_MAX_CHARS, logInfo);
+
+  return buildPromptWithMemoryTemplate({
+    userPrompt,
+    memoryFilePath: MEMORY_FILE_PATH,
+    callbackHost: CALLBACK_HOST,
+    callbackPort: CALLBACK_PORT,
+    callbackChatStateFilePath: CALLBACK_CHAT_STATE_FILE_PATH,
+    callbackAuthToken: CALLBACK_AUTH_TOKEN,
+    memoryContext,
+    messagingPlatform: MESSAGING_PLATFORM,
+    includeSchedulerApi: false,
   });
 }
 

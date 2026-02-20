@@ -28,6 +28,29 @@ export class ClaudeCodeAgent extends BaseCliAgent {
     return modeMap[approvalMode] || 'default';
   }
 
+  buildPromptArgs(promptText: string): string[] {
+    const args: string[] = [];
+
+    if (this.config.includeDirectories && this.config.includeDirectories.length > 0) {
+      const includeDirectorySet = new Set(this.config.includeDirectories);
+      for (const includeDirectory of includeDirectorySet) {
+        args.push('--add-dir', includeDirectory);
+      }
+    }
+
+    const permissionMode = this.mapApprovalMode(this.config.approvalMode);
+    if (permissionMode) {
+      args.push('--permission-mode', permissionMode);
+    }
+
+    if (this.config.model) {
+      args.push('--model', this.config.model);
+    }
+
+    args.push('-p', promptText);
+    return args;
+  }
+
   buildAcpArgs(): string[] {
     // Claude Agent ACP adapter uses standard ACP protocol
     // No special flags needed - it's ACP-native

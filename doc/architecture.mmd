@@ -1,0 +1,73 @@
+flowchart LR
+  subgraph IN["Inbound Adapters"]
+    direction TB
+    TG[Telegram Adapter]
+    SL[Slack Adapter]
+  end
+
+  subgraph CORE["Clawless Core"]
+    direction TB
+    Q["Queue + Single Worker<br/>Live Message Streaming"]
+    ACP["ACP Runtime<br/>Gemini CLI (default), OpenCode, or Claude Code"]
+    CRON[Cron Scheduler / Job Runner]
+  end
+
+  subgraph API["Local HTTP APIs (localhost)"]
+    direction TB
+    CB["POST /callback<br/>/callback/telegram, /callback/slack"]
+    SA["Scheduler API<br/>/api/schedule (CRUD)"]
+    SR["Semantic Recall API<br/>POST /api/memory/semantic-recall"]
+  end
+
+  subgraph STATE["Persistent Local State"]
+    direction TB
+    CHAT[(~/.clawless/callback-chat-state.json)]
+    SCH[(~/.clawless/schedules.json)]
+    MEM[(~/.clawless/MEMORY.md)]
+    HIST[(~/.clawless/conversation-history.jsonl)]
+    SEM[(~/.clawless/conversation-semantic-memory.db)]
+  end
+
+  subgraph OUT["Destinations"]
+    direction TB
+    DEST[Bound destination chat/channel]
+    AGENT[Local Agent + MCP tools/filesystem]
+  end
+
+  TG -->|inbound messages/events| Q
+  SL -->|inbound messages/events| Q
+
+  Q --> ACP
+  ACP --> AGENT
+  ACP --> MEM
+  Q --> HIST
+
+  SA --> CRON
+  CRON --> ACP
+  CRON --> SCH
+  ACP --> SEM
+  SR --> SEM
+
+  CB --> CHAT
+  CB --> DEST
+  Q --> CHAT
+  Q --> DEST
+
+  %% Color Styling
+  style IN stroke:#01579b,stroke-width:2px
+  style CORE stroke:#e65100,stroke-width:2px
+  style API stroke:#1b5e20,stroke-width:2px
+  style STATE stroke:#4a148c,stroke-width:2px
+  style OUT stroke:#880e4f,stroke-width:2px
+
+  classDef inboundNode fill:#b3e5fc,stroke:#01579b
+  classDef coreNode fill:#ffe0b2,stroke:#e65100
+  classDef apiNode fill:#c8e6c9,stroke:#1b5e20
+  classDef stateNode fill:#e1bee7,stroke:#4a148c
+  classDef outNode fill:#f8bbd0,stroke:#880e4f
+
+  class TG,SL inboundNode
+  class Q,ACP,CRON coreNode
+  class CB,SA,SR apiNode
+  class CHAT,SCH,MEM,HIST,SEM stateNode
+  class DEST,AGENT outNode

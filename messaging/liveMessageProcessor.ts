@@ -260,7 +260,8 @@ export async function processSingleTelegramMessage(params: ProcessSingleMessageP
       const jobRef = `job_${generateShortId()}`;
       logInfo('Async mode confirmed, scheduling background job', { requestId: messageRequestId, jobRef });
 
-      void scheduleAsyncJob(messageContext.text, messageContext.chatId, jobRef).catch((error) => {
+      const taskMessage = detectConversationMode(fullResponse).content || messageContext.text;
+      void scheduleAsyncJob(taskMessage, messageContext.chatId, jobRef).catch((error) => {
         logInfo('Fire-and-forget scheduleAsyncJob failed', {
           requestId: messageRequestId,
           jobRef,
@@ -268,9 +269,7 @@ export async function processSingleTelegramMessage(params: ProcessSingleMessageP
         });
       });
 
-      const baseMsg = fullResponse.trim() || `[MODE: ASYNC] I've scheduled this task. I'll notify you when it's done.`;
-      const finalMsg = `${baseMsg}\n\nReference: ${jobRef}`;
-
+      const finalMsg = `[MODE: ASYNC] I've scheduled this task. I'll notify you when it's done. Reference: ${jobRef}`;
       await messageContext.sendText(finalMsg);
       return;
     }

@@ -22,7 +22,7 @@ User Request: "${userRequest}"`;
 }
 
 function formatBackgroundTaskResult(request: string, result: string): string {
-  return `✅ Background task completed.\n\nOriginal Request: "${request}"\n\nResult:\n${result}`;
+  return `📢 Background task completed.\n\nOriginal Request: "${request}"\n\nResult:\n${result}`;
 }
 
 export function createScheduledJobHandler(deps: ScheduledJobHandlerDeps) {

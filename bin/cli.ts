@@ -70,7 +70,7 @@ const DEFAULT_CONFIG_TEMPLATE = {
   cliAgentModel: '',
   cliAgentTimeoutMs: 1200000,
   cliAgentNoOutputTimeoutMs: 300000,
-  cliAgentKillGraceMs: 5000,
+  cliAgentKillGraceMs: 10000,
   acpPermissionStrategy: 'allow_once',
   acpPrewarmRetryMs: 30000,
   acpPrewarmMaxRetries: 10,

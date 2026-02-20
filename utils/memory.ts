@@ -53,6 +53,7 @@ export function buildPromptWithMemory(params: {
   callbackAuthToken: string;
   memoryContext: string;
   messagingPlatform: string;
+  includeSchedulerApi?: boolean;
 }) {
   const {
     userPrompt,
@@ -63,6 +64,7 @@ export function buildPromptWithMemory(params: {
     callbackAuthToken,
     memoryContext,
     messagingPlatform,
+    includeSchedulerApi = true,
   } = params;
 
   const callbackEndpoint = `http://${callbackHost}:${callbackPort}/callback/${messagingPlatform}`;
@@ -80,20 +82,24 @@ export function buildPromptWithMemory(params: {
     '- If no `chatId` is provided, the bridge sends to the persisted bound chat.',
     `- For scheduled jobs, include callback delivery steps so results are pushed to ${messagingPlatform} when jobs complete.`,
     '',
-    '**Scheduler API:**',
-    `- Create schedule: POST ${scheduleEndpoint}`,
-    `- Update schedule: PATCH ${scheduleEndpoint}/:id`,
-    '  Body format for recurring: {"message": "prompt text", "description": "optional", "cronExpression": "* * * * *"}',
-    '  Body format for one-time: {"message": "prompt text", "description": "optional", "oneTime": true, "runAt": "2026-12-31T23:59:59Z"}',
-    '  Body format for update: {"message": "optional", "description": "optional", "cronExpression": "optional", "oneTime": true|false, "runAt": "optional ISO date", "active": true|false}',
-    '  Cron format: "minute hour day month weekday" (e.g., "0 9 * * *" = daily at 9am, "*/5 * * * *" = every 5 minutes)',
-    `- List schedules: GET ${scheduleEndpoint}`,
-    `- Get schedule: GET ${scheduleEndpoint}/:id`,
-    `- Delete schedule: DELETE ${scheduleEndpoint}/:id`,
-    '- Never edit scheduler persistence files directly; always mutate schedules through the Scheduler API.',
-    `- When schedule runs, it executes the message through the configured local CLI agent and sends results to ${messagingPlatform}.`,
-    '- Use this API when user asks to schedule tasks, set reminders, or create recurring jobs.',
-    '',
+    ...(includeSchedulerApi
+      ? [
+          '**Scheduler API:**',
+          `- Create schedule: POST ${scheduleEndpoint}`,
+          `- Update schedule: PATCH ${scheduleEndpoint}/:id`,
+          '  Body format for recurring: {"message": "prompt text", "description": "optional", "cronExpression": "* * * * *"}',
+          '  Body format for one-time: {"message": "prompt text", "description": "optional", "oneTime": true, "runAt": "2026-12-31T23:59:59Z"}',
+          '  Body format for update: {"message": "optional", "description": "optional", "cronExpression": "optional", "oneTime": true|false, "runAt": "optional ISO date", "active": true|false}',
+          '  Cron format: "minute hour day month weekday" (e.g., "0 9 * * *" = daily at 9am, "*/5 * * * *" = every 5 minutes)',
+          `- List schedules: GET ${scheduleEndpoint}`,
+          `- Get schedule: GET ${scheduleEndpoint}/:id`,
+          `- Delete schedule: DELETE ${scheduleEndpoint}/:id`,
+          '- Never edit scheduler persistence files directly; always mutate schedules through the Scheduler API.',
+          `- When schedule runs, it executes the message through the configured local CLI agent and sends results to ${messagingPlatform}.`,
+          '- Use this API when user asks to schedule tasks, set reminders, or create recurring jobs.',
+          '',
+        ]
+      : []),
     '**Semantic recall API (on-demand):**',
     `- Endpoint: POST ${semanticRecallEndpoint}`,
     '- Request body: {"input": "current user question", "chatId": "optional", "topK": 3}',
