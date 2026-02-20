@@ -25,8 +25,8 @@ export class OpencodeAgent extends BaseCliAgent {
     const args = ['acp'];
 
     // MCP server configs are passed via getMcpServersForAcp() to the ACP session
-    // Also check environment variable as fallback
-    const raw = process.env.ACP_MCP_SERVERS_JSON;
+    // Also check explicit config as fallback
+    const raw = this.config.acpMcpServersJson;
     if (raw) {
       try {
         const mcpServers = JSON.parse(raw);

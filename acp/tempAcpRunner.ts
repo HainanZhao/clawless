@@ -12,6 +12,8 @@ export interface TempAcpRunnerOptions {
   permissionStrategy?: string;
   stderrTailMaxChars?: number;
   logInfo: (message: string, details?: unknown) => void;
+  acpMcpServersJson?: string;
+  acpDebugStream?: boolean;
 }
 
 /**

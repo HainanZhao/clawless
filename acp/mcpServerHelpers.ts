@@ -93,14 +93,13 @@ function normalizeMcpServers(value: unknown): unknown[] {
 }
 
 export function getMcpServersForSession(options: {
+  acpMcpServersJson?: string;
   logInfo: McpServersLogger;
   getErrorMessage: McpServersErrorFormatter;
   invalidEnvMessage: string;
   logDetails?: Record<string, unknown>;
 }): McpServersResult {
-  const { logInfo, getErrorMessage, invalidEnvMessage, logDetails } = options;
-
-  const raw = process.env.ACP_MCP_SERVERS_JSON;
+  const { acpMcpServersJson: raw, logInfo, getErrorMessage, invalidEnvMessage, logDetails } = options;
   if (!raw) {
     return {
       source: 'default-empty',

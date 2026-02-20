@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 import { runConfigTui } from './configTui.js';
+import { getConfig } from '../utils/config.js';
 
 const ENV_KEY_MAP: Record<string, string> = {
   messagingPlatform: 'MESSAGING_PLATFORM',
@@ -239,8 +240,9 @@ function ensureMemoryFile(memoryFilePath: string) {
 }
 
 function ensureMemoryFromEnv() {
-  const configuredHome = process.env.CLAWLESS_HOME || DEFAULT_CLAWLESS_HOME;
-  const configuredMemoryPath = process.env.MEMORY_FILE_PATH || path.join(configuredHome, 'MEMORY.md');
+  const config = getConfig();
+  const configuredHome = config.CLAWLESS_HOME;
+  const configuredMemoryPath = config.MEMORY_FILE_PATH;
 
   if (!process.env.CLAWLESS_HOME) {
     process.env.CLAWLESS_HOME = configuredHome;
@@ -250,7 +252,7 @@ function ensureMemoryFromEnv() {
     process.env.MEMORY_FILE_PATH = configuredMemoryPath;
   }
 
-  return ensureMemoryFile(process.env.MEMORY_FILE_PATH || DEFAULT_MEMORY_FILE_PATH);
+  return ensureMemoryFile(configuredMemoryPath);
 }
 
 function logMemoryFileCreation(memoryState: { created: boolean; path: string }) {

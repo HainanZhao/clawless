@@ -12,6 +12,7 @@ export interface CliAgentConfig {
   model?: string;
   includeDirectories?: string[];
   killGraceMs?: number;
+  acpMcpServersJson?: string;
 }
 
 export interface CliAgentCapabilities {

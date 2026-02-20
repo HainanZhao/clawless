@@ -37,57 +37,17 @@ import {
   type SemanticConversationMemoryConfig,
 } from './utils/semanticConversationMemory.js';
 import dotenv from 'dotenv';
+import { getConfig } from './utils/config.js';
 
 // Load environment variables
 dotenv.config();
 
-function expandHomePath(value: string): string {
-  if (!value || value === '~') {
-    return os.homedir();
-  }
-  if (value.startsWith('~/')) {
-    return path.join(os.homedir(), value.slice(2));
-  }
-  return value;
-}
+const config = getConfig();
 
-const MESSAGING_PLATFORM = (process.env.MESSAGING_PLATFORM || 'telegram').trim().toLowerCase();
-const SUPPORTED_PLATFORMS = new Set(['telegram', 'slack']);
-
-if (!SUPPORTED_PLATFORMS.has(MESSAGING_PLATFORM)) {
-  console.error(`Error: Unknown MESSAGING_PLATFORM: ${MESSAGING_PLATFORM}. Use 'telegram' or 'slack'.`);
-  process.exit(1);
-}
-
-if (MESSAGING_PLATFORM === 'telegram') {
-  if (!process.env.TELEGRAM_TOKEN) {
-    console.error('Error: TELEGRAM_TOKEN environment variable is required for Telegram');
-    process.exit(1);
-  }
-
-  if (
-    process.env.TELEGRAM_TOKEN.includes('your_telegram_bot_token_here') ||
-    !process.env.TELEGRAM_TOKEN.includes(':')
-  ) {
-    console.error('Error: TELEGRAM_TOKEN looks invalid. Set a real token from @BotFather in your config/env.');
-    process.exit(1);
-  }
-}
-
-if (MESSAGING_PLATFORM === 'slack') {
-  if (!process.env.SLACK_BOT_TOKEN) {
-    console.error('Error: SLACK_BOT_TOKEN environment variable is required for Slack');
-    process.exit(1);
-  }
-
-  if (!process.env.SLACK_SIGNING_SECRET) {
-    console.error('Error: SLACK_SIGNING_SECRET environment variable is required for Slack');
-    process.exit(1);
-  }
-}
+const MESSAGING_PLATFORM = config.MESSAGING_PLATFORM;
 
 // CLI Agent configuration
-const CLI_AGENT = (process.env.CLI_AGENT || 'gemini').trim().toLowerCase();
+const CLI_AGENT = config.CLI_AGENT;
 
 let agentCommand: string;
 switch (CLI_AGENT) {
@@ -101,62 +61,48 @@ switch (CLI_AGENT) {
     agentCommand = 'gemini';
     break;
 }
-const CLI_AGENT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_TIMEOUT_MS || '1200000', 10);
-const CLI_AGENT_NO_OUTPUT_TIMEOUT_MS = parseInt(process.env.CLI_AGENT_NO_OUTPUT_TIMEOUT_MS || '300000', 10);
-const CLI_AGENT_APPROVAL_MODE = process.env.CLI_AGENT_APPROVAL_MODE || 'yolo';
-const CLI_AGENT_MODEL = process.env.CLI_AGENT_MODEL || '';
-const CLI_AGENT_KILL_GRACE_MS = parseInt(process.env.CLI_AGENT_KILL_GRACE_MS || '10000', 10);
-const ACP_PERMISSION_STRATEGY = process.env.ACP_PERMISSION_STRATEGY || 'allow_once';
-const ACP_STREAM_STDOUT = String(process.env.ACP_STREAM_STDOUT || '').toLowerCase() === 'true';
-const ACP_DEBUG_STREAM = String(process.env.ACP_DEBUG_STREAM || '').toLowerCase() === 'true';
-const HEARTBEAT_INTERVAL_MS = parseInt(process.env.HEARTBEAT_INTERVAL_MS || '300000', 10);
-const ACP_PREWARM_RETRY_MS = parseInt(process.env.ACP_PREWARM_RETRY_MS || '30000', 10);
-const CLAWLESS_HOME = expandHomePath(process.env.CLAWLESS_HOME || path.join(os.homedir(), '.clawless'));
-const MEMORY_FILE_PATH = expandHomePath(process.env.MEMORY_FILE_PATH || path.join(CLAWLESS_HOME, 'MEMORY.md'));
-const SCHEDULES_FILE_PATH = expandHomePath(
-  process.env.SCHEDULES_FILE_PATH || path.join(CLAWLESS_HOME, 'schedules.json'),
-);
+const CLI_AGENT_TIMEOUT_MS = config.CLI_AGENT_TIMEOUT_MS;
+const CLI_AGENT_NO_OUTPUT_TIMEOUT_MS = config.CLI_AGENT_NO_OUTPUT_TIMEOUT_MS;
+const CLI_AGENT_APPROVAL_MODE = config.CLI_AGENT_APPROVAL_MODE;
+const CLI_AGENT_MODEL = config.CLI_AGENT_MODEL;
+const CLI_AGENT_KILL_GRACE_MS = config.CLI_AGENT_KILL_GRACE_MS;
+const ACP_PERMISSION_STRATEGY = config.ACP_PERMISSION_STRATEGY;
+const ACP_STREAM_STDOUT = config.ACP_STREAM_STDOUT;
+const ACP_DEBUG_STREAM = config.ACP_DEBUG_STREAM;
+const HEARTBEAT_INTERVAL_MS = config.HEARTBEAT_INTERVAL_MS;
+const ACP_PREWARM_RETRY_MS = config.ACP_PREWARM_RETRY_MS;
+const CLAWLESS_HOME = config.CLAWLESS_HOME;
+const MEMORY_FILE_PATH = config.MEMORY_FILE_PATH;
+const SCHEDULES_FILE_PATH = config.SCHEDULES_FILE_PATH;
 const CALLBACK_CHAT_STATE_FILE_PATH = path.join(CLAWLESS_HOME, 'callback-chat-state.json');
-const MEMORY_MAX_CHARS = parseInt(process.env.MEMORY_MAX_CHARS || '12000', 10);
-const CALLBACK_HOST = process.env.CALLBACK_HOST || 'localhost';
-const CALLBACK_PORT = parseInt(process.env.CALLBACK_PORT || '8788', 10);
-const CALLBACK_AUTH_TOKEN = process.env.CALLBACK_AUTH_TOKEN || '';
-const CALLBACK_MAX_BODY_BYTES = parseInt(process.env.CALLBACK_MAX_BODY_BYTES || '65536', 10);
+const MEMORY_MAX_CHARS = config.MEMORY_MAX_CHARS;
+const CALLBACK_HOST = config.CALLBACK_HOST;
+const CALLBACK_PORT = config.CALLBACK_PORT;
+const CALLBACK_AUTH_TOKEN = config.CALLBACK_AUTH_TOKEN;
+const CALLBACK_MAX_BODY_BYTES = config.CALLBACK_MAX_BODY_BYTES;
 
 // Conversation history configuration
-const CONVERSATION_HISTORY_ENABLED =
-  String(process.env.CONVERSATION_HISTORY_ENABLED || 'true').toLowerCase() === 'true';
-const CONVERSATION_HISTORY_FILE_PATH = expandHomePath(
-  process.env.CONVERSATION_HISTORY_FILE_PATH || path.join(CLAWLESS_HOME, 'conversation-history.jsonl'),
-);
-const CONVERSATION_HISTORY_MAX_ENTRIES = parseInt(process.env.CONVERSATION_HISTORY_MAX_ENTRIES || '100', 10);
-const CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY = parseInt(
-  process.env.CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY || '2000',
-  10,
-);
-const CONVERSATION_HISTORY_MAX_TOTAL_CHARS = parseInt(process.env.CONVERSATION_HISTORY_MAX_TOTAL_CHARS || '8000', 10);
-const CONVERSATION_HISTORY_RECAP_TOP_K = parseInt(process.env.CONVERSATION_HISTORY_RECAP_TOP_K || '3', 10);
-const CONVERSATION_SEMANTIC_RECALL_ENABLED =
-  String(process.env.CONVERSATION_SEMANTIC_RECALL_ENABLED || 'true').toLowerCase() === 'true';
-const CONVERSATION_SEMANTIC_STORE_PATH = expandHomePath(
-  process.env.CONVERSATION_SEMANTIC_STORE_PATH || path.join(CLAWLESS_HOME, 'conversation-semantic-memory.db'),
-);
-const CONVERSATION_SEMANTIC_MAX_ENTRIES = parseInt(process.env.CONVERSATION_SEMANTIC_MAX_ENTRIES || '1000', 10);
-const CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY = parseInt(
-  process.env.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY || '4000',
-  10,
-);
+const CONVERSATION_HISTORY_ENABLED = config.CONVERSATION_HISTORY_ENABLED;
+const CONVERSATION_HISTORY_FILE_PATH = config.CONVERSATION_HISTORY_FILE_PATH;
+const CONVERSATION_HISTORY_MAX_ENTRIES = config.CONVERSATION_HISTORY_MAX_ENTRIES;
+const CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY = config.CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY;
+const CONVERSATION_HISTORY_MAX_TOTAL_CHARS = config.CONVERSATION_HISTORY_MAX_TOTAL_CHARS;
+const CONVERSATION_HISTORY_RECAP_TOP_K = config.CONVERSATION_HISTORY_RECAP_TOP_K;
+const CONVERSATION_SEMANTIC_RECALL_ENABLED = config.CONVERSATION_SEMANTIC_RECALL_ENABLED;
+const CONVERSATION_SEMANTIC_STORE_PATH = config.CONVERSATION_SEMANTIC_STORE_PATH;
+const CONVERSATION_SEMANTIC_MAX_ENTRIES = config.CONVERSATION_SEMANTIC_MAX_ENTRIES;
+const CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY = config.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY;
 
 // Typing indicator refresh interval (platform typing state expires quickly)
-const TYPING_INTERVAL_MS = parseInt(process.env.TYPING_INTERVAL_MS || '4000', 10);
-const STREAM_UPDATE_INTERVAL_MS = parseInt(process.env.STREAM_UPDATE_INTERVAL_MS || '5000', 10);
+const TYPING_INTERVAL_MS = config.TYPING_INTERVAL_MS;
+const STREAM_UPDATE_INTERVAL_MS = config.STREAM_UPDATE_INTERVAL_MS;
 const MESSAGE_GAP_THRESHOLD_MS = 15000; // Start a new message if gap between chunks > 5s
 
 // Maximum response length to prevent memory issues
-const MAX_RESPONSE_LENGTH = parseInt(process.env.MAX_RESPONSE_LENGTH || '4000', 10);
+const MAX_RESPONSE_LENGTH = config.MAX_RESPONSE_LENGTH;
 
-const TELEGRAM_WHITELIST: string[] = parseWhitelistFromEnv(process.env.TELEGRAM_WHITELIST || '');
-const SLACK_WHITELIST: string[] = parseAllowlistFromEnv(process.env.SLACK_WHITELIST || '', 'SLACK_WHITELIST');
+const TELEGRAM_WHITELIST: string[] = parseWhitelistFromEnv(config.TELEGRAM_WHITELIST);
+const SLACK_WHITELIST: string[] = parseAllowlistFromEnv(config.SLACK_WHITELIST, 'SLACK_WHITELIST');
 const TELEGRAM_WHITELIST_MAX_USERS = 10;
 
 if (MESSAGING_PLATFORM === 'telegram') {
@@ -199,15 +145,15 @@ let messagingClient: MessagingClient;
 
 if (MESSAGING_PLATFORM === 'telegram') {
   messagingClient = new TelegramMessagingClient({
-    token: process.env.TELEGRAM_TOKEN || '',
+    token: config.TELEGRAM_TOKEN || '',
     typingIntervalMs: TYPING_INTERVAL_MS,
     maxMessageLength: MAX_RESPONSE_LENGTH,
   });
 } else {
   messagingClient = new SlackMessagingClient({
-    token: process.env.SLACK_BOT_TOKEN || '',
-    signingSecret: process.env.SLACK_SIGNING_SECRET || '',
-    appToken: process.env.SLACK_APP_TOKEN,
+    token: config.SLACK_BOT_TOKEN || '',
+    signingSecret: config.SLACK_SIGNING_SECRET || '',
+    appToken: config.SLACK_APP_TOKEN,
     typingIntervalMs: TYPING_INTERVAL_MS,
     maxMessageLength: MAX_RESPONSE_LENGTH,
   });
@@ -252,6 +198,7 @@ const cliAgent = createCliAgent(cliAgentType, {
   model: CLI_AGENT_MODEL,
   includeDirectories: [CLAWLESS_HOME, os.homedir()],
   killGraceMs: CLI_AGENT_KILL_GRACE_MS,
+  acpMcpServersJson: config.ACP_MCP_SERVERS_JSON,
 });
 
 function validateCliAgentOrExit() {
@@ -288,7 +235,7 @@ const handleScheduledJob = createScheduledJobHandler({
 
 const cronScheduler = new CronScheduler(handleScheduledJob, {
   persistenceFilePath: SCHEDULES_FILE_PATH,
-  timezone: process.env.TZ || 'UTC',
+  timezone: config.TZ,
   logInfo,
 });
 
@@ -350,6 +297,8 @@ const acpRuntime = createAcpRuntime({
   acpTimeoutMs: CLI_AGENT_TIMEOUT_MS,
   acpNoOutputTimeoutMs: CLI_AGENT_NO_OUTPUT_TIMEOUT_MS,
   acpPrewarmRetryMs: ACP_PREWARM_RETRY_MS,
+  acpPrewarmMaxRetries: config.ACP_PREWARM_MAX_RETRIES,
+  acpMcpServersJson: config.ACP_MCP_SERVERS_JSON,
   stderrTailMaxChars: GEMINI_STDERR_TAIL_MAX,
   buildPromptWithMemory,
   ensureMemoryFile: () => ensureMemoryFile(MEMORY_FILE_PATH, logInfo),
@@ -384,6 +333,8 @@ async function runScheduledPromptWithTempAcp(promptForAgent: string, scheduleId:
     permissionStrategy: ACP_PERMISSION_STRATEGY,
     stderrTailMaxChars: GEMINI_STDERR_TAIL_MAX,
     logInfo,
+    acpMcpServersJson: config.ACP_MCP_SERVERS_JSON,
+    acpDebugStream: ACP_DEBUG_STREAM,
   });
 }
 const runAcpPrompt = acpRuntime.runAcpPrompt;

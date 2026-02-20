@@ -65,7 +65,7 @@ export class CronScheduler {
   constructor(callback: (schedule: ScheduleConfig) => Promise<void>, options: CronSchedulerOptions = {}) {
     this.jobCallback = callback;
     this.persistenceFilePath = options.persistenceFilePath || null;
-    this.timezone = options.timezone || process.env.TZ || 'UTC';
+    this.timezone = options.timezone || 'UTC';
     this.logInfo =
       options.logInfo ||
       ((message: string, details?: unknown) => {
