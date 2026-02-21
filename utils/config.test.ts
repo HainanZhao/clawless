@@ -41,7 +41,6 @@ describe('config utils', () => {
     });
 
     it('returns empty string if value is empty', () => {
-       // @ts-ignore
       expect(expandHomePath('')).toBe(mockHome);
     });
   });
@@ -70,23 +69,31 @@ describe('config utils', () => {
     it('validates Telegram platform requires token', () => {
       vi.stubEnv('MESSAGING_PLATFORM', 'telegram');
       vi.stubEnv('TELEGRAM_TOKEN', '');
-      
-      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit called'); });
+
+      vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(() => getConfig()).toThrow('process.exit called');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('TELEGRAM_TOKEN environment variable is required'));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('TELEGRAM_TOKEN environment variable is required'),
+      );
     });
 
     it('validates Slack platform requires tokens', () => {
       vi.stubEnv('MESSAGING_PLATFORM', 'slack');
       vi.stubEnv('SLACK_BOT_TOKEN', '');
-      
-      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => { throw new Error('process.exit called'); });
+
+      vi.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       expect(() => getConfig()).toThrow('process.exit called');
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('SLACK_BOT_TOKEN environment variable is required'));
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.stringContaining('SLACK_BOT_TOKEN environment variable is required'),
+      );
     });
   });
 });

@@ -1,5 +1,11 @@
 import os from 'node:os';
-import { createCliAgent, validateAgentType, SUPPORTED_AGENTS, type AgentType, type BaseCliAgent } from '../core/agents/index.js';
+import {
+  createCliAgent,
+  validateAgentType,
+  SUPPORTED_AGENTS,
+  type AgentType,
+  type BaseCliAgent,
+} from '../core/agents/index.js';
 import { createAcpRuntime, type AcpRuntime } from '../acp/runtimeManager.js';
 import { buildPermissionResponse, noOpAcpFileOperation } from '../acp/clientHelpers.js';
 import { getErrorMessage, logInfo } from '../utils/error.js';

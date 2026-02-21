@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processSingleTelegramMessage } from './liveMessageProcessor.js';
-import { ConversationMode } from './ModeDetector.js';
 
 describe('processSingleTelegramMessage', () => {
   const mockMessageContext = {
@@ -33,14 +32,13 @@ describe('processSingleTelegramMessage', () => {
 
   it('sends the actual task message content in ASYNC mode', async () => {
     const fullResponse = '[MODE: ASYNC] Do some work';
-    // @ts-ignore
     mockParams.runAcpPrompt.mockResolvedValue(fullResponse);
 
     await processSingleTelegramMessage(mockParams as any);
 
     expect(mockParams.scheduleAsyncJob).toHaveBeenCalled();
     expect(mockMessageContext.sendText).toHaveBeenCalledWith(
-      expect.stringContaining('[MODE: ASYNC] Do some work (Reference: job_')
+      expect.stringContaining('[MODE: ASYNC] Do some work (Reference: job_'),
     );
   });
 });

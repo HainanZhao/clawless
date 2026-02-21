@@ -1,11 +1,7 @@
 import path from 'node:path';
 import { logInfo } from '../utils/error.js';
 import { getConfig, type Config } from '../utils/config.js';
-import {
-  ensureClawlessHomeDirectory,
-  resolveChatId,
-  loadPersistedCallbackChatId,
-} from '../utils/callbackState.js';
+import { ensureClawlessHomeDirectory, resolveChatId, loadPersistedCallbackChatId } from '../utils/callbackState.js';
 import {
   ensureMemoryFile,
   readMemoryContext,
@@ -16,9 +12,7 @@ import {
   loadConversationHistory,
   type ConversationHistoryConfig,
 } from '../utils/conversationHistory.js';
-import {
-  SemanticConversationMemory,
-} from '../utils/semanticConversationMemory.js';
+import { SemanticConversationMemory } from '../utils/semanticConversationMemory.js';
 import { runPromptWithCli } from '../acp/tempAcpRunner.js';
 import { AgentManager } from './AgentManager.js';
 import { MessagingInitializer } from './MessagingInitializer.js';
@@ -47,12 +41,15 @@ export class ClawlessApp {
       logInfo,
     };
 
-    this.semanticConversationMemory = new SemanticConversationMemory({
-      enabled: this.config.CONVERSATION_SEMANTIC_RECALL_ENABLED,
-      storePath: this.config.CONVERSATION_SEMANTIC_STORE_PATH,
-      maxEntries: this.config.CONVERSATION_SEMANTIC_MAX_ENTRIES,
-      maxCharsPerEntry: this.config.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY,
-    }, logInfo);
+    this.semanticConversationMemory = new SemanticConversationMemory(
+      {
+        enabled: this.config.CONVERSATION_SEMANTIC_RECALL_ENABLED,
+        storePath: this.config.CONVERSATION_SEMANTIC_STORE_PATH,
+        maxEntries: this.config.CONVERSATION_SEMANTIC_MAX_ENTRIES,
+        maxCharsPerEntry: this.config.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY,
+      },
+      logInfo,
+    );
 
     this.agentManager = new AgentManager({
       config: this.config,

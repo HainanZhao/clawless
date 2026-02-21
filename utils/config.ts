@@ -41,7 +41,10 @@ const configSchema = z.object({
   CALLBACK_PORT: z.coerce.number().default(8788),
   CALLBACK_AUTH_TOKEN: z.string().default(''),
   CALLBACK_MAX_BODY_BYTES: z.coerce.number().default(65536),
-  CLAWLESS_HOME: z.string().optional().transform((v) => expandHomePath(v || path.join(os.homedir(), '.clawless'))),
+  CLAWLESS_HOME: z
+    .string()
+    .optional()
+    .transform((v) => expandHomePath(v || path.join(os.homedir(), '.clawless'))),
   MEMORY_FILE_PATH: z.string().optional(),
   MEMORY_MAX_CHARS: z.coerce.number().default(12000),
   CONVERSATION_HISTORY_ENABLED: z.preprocess((v) => String(v).toLowerCase() === 'true', z.boolean()).default(true),
@@ -50,7 +53,9 @@ const configSchema = z.object({
   CONVERSATION_HISTORY_MAX_CHARS_PER_ENTRY: z.coerce.number().default(2000),
   CONVERSATION_HISTORY_MAX_TOTAL_CHARS: z.coerce.number().default(8000),
   CONVERSATION_HISTORY_RECAP_TOP_K: z.coerce.number().default(3),
-  CONVERSATION_SEMANTIC_RECALL_ENABLED: z.preprocess((v) => String(v).toLowerCase() === 'true', z.boolean()).default(true),
+  CONVERSATION_SEMANTIC_RECALL_ENABLED: z
+    .preprocess((v) => String(v).toLowerCase() === 'true', z.boolean())
+    .default(true),
   CONVERSATION_SEMANTIC_STORE_PATH: z.string().optional(),
   CONVERSATION_SEMANTIC_MAX_ENTRIES: z.coerce.number().default(1000),
   CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY: z.coerce.number().default(4000),
@@ -83,10 +88,20 @@ export function getConfig(): Config {
   // Final path resolution for dependent paths
   const config = {
     ...validatedConfig,
-    MEMORY_FILE_PATH: expandHomePath(validatedConfig.MEMORY_FILE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'MEMORY.md')),
-    SCHEDULES_FILE_PATH: expandHomePath(validatedConfig.SCHEDULES_FILE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'schedules.json')),
-    CONVERSATION_HISTORY_FILE_PATH: expandHomePath(validatedConfig.CONVERSATION_HISTORY_FILE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'conversation-history.jsonl')),
-    CONVERSATION_SEMANTIC_STORE_PATH: expandHomePath(validatedConfig.CONVERSATION_SEMANTIC_STORE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'conversation-semantic-memory.db')),
+    MEMORY_FILE_PATH: expandHomePath(
+      validatedConfig.MEMORY_FILE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'MEMORY.md'),
+    ),
+    SCHEDULES_FILE_PATH: expandHomePath(
+      validatedConfig.SCHEDULES_FILE_PATH || path.join(validatedConfig.CLAWLESS_HOME, 'schedules.json'),
+    ),
+    CONVERSATION_HISTORY_FILE_PATH: expandHomePath(
+      validatedConfig.CONVERSATION_HISTORY_FILE_PATH ||
+        path.join(validatedConfig.CLAWLESS_HOME, 'conversation-history.jsonl'),
+    ),
+    CONVERSATION_SEMANTIC_STORE_PATH: expandHomePath(
+      validatedConfig.CONVERSATION_SEMANTIC_STORE_PATH ||
+        path.join(validatedConfig.CLAWLESS_HOME, 'conversation-semantic-memory.db'),
+    ),
   };
 
   // Perform conditional validation

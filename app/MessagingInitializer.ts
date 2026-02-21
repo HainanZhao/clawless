@@ -35,8 +35,6 @@ export class MessagingInitializer {
 
     const TELEGRAM_WHITELIST = parseWhitelistFromEnv(this.config.TELEGRAM_WHITELIST);
     const SLACK_WHITELIST = parseAllowlistFromEnv(this.config.SLACK_WHITELIST, 'SLACK_WHITELIST');
-    const TELEGRAM_WHITELIST_MAX_USERS = 10;
-
     if (this.config.MESSAGING_PLATFORM === 'telegram') {
       if (TELEGRAM_WHITELIST.length === 0) {
         console.error('Error: TELEGRAM_WHITELIST is required in Telegram mode.');
@@ -74,7 +72,9 @@ export class MessagingInitializer {
           acpDebugStream: this.config.ACP_DEBUG_STREAM,
           runAcpPrompt: options.acpRuntime.runAcpPrompt,
           scheduleAsyncJob: async (message, chatId, jobRef) => {
-            return await options.cronScheduler.executeOneTimeJobImmediately(message, jobRef || 'Async User Task', { chatId });
+            return await options.cronScheduler.executeOneTimeJobImmediately(message, jobRef || 'Async User Task', {
+              chatId,
+            });
           },
           logInfo,
           getErrorMessage,

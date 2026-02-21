@@ -54,8 +54,6 @@ const ENV_KEY_MAP: Record<string, string> = {
 };
 
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.clawless', 'config.json');
-const DEFAULT_CLAWLESS_HOME = path.join(os.homedir(), '.clawless');
-const DEFAULT_MEMORY_FILE_PATH = path.join(DEFAULT_CLAWLESS_HOME, 'MEMORY.md');
 const DEFAULT_CONFIG_TEMPLATE = {
   messagingPlatform: 'telegram',
   telegramToken: 'your_telegram_bot_token_here',
