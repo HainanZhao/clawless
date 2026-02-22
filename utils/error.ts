@@ -34,9 +34,19 @@ export function getErrorMessage(error: unknown, fallback = 'Unknown error'): str
 export function logInfo(message: string, details?: unknown) {
   const timestamp = new Date().toISOString();
   if (details !== undefined) {
-    console.log(`[${timestamp}] ${message}`, details);
+    console.log(`[${timestamp}] INFO: ${message}`, details);
     return;
   }
 
-  console.log(`[${timestamp}] ${message}`);
+  console.log(`[${timestamp}] INFO: ${message}`);
+}
+
+export function logError(message: string, details?: unknown) {
+  const timestamp = new Date().toISOString();
+  if (details !== undefined) {
+    console.error(`[${timestamp}] ERROR: ${message}`, details);
+    return;
+  }
+
+  console.error(`[${timestamp}] ERROR: ${message}`);
 }

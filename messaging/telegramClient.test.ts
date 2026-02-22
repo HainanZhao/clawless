@@ -4,14 +4,23 @@ import { toTelegramMarkdown, escapeMarkdownV2 } from './telegramClient.js';
 describe('telegramClient', () => {
   describe('escapeMarkdownV2', () => {
     it('should escape all reserved characters', () => {
-      const text = '_ * [ ] ( ) ~ ` > # + - = | { } . !';
+      const text = '\\ _ * [ ] ( ) ~ ` > # + - = | { } . !';
       const escaped = escapeMarkdownV2(text);
-      expect(escaped).toBe('\\_ \\* \\[ \\] \\( \\) \\~ \\` \\> \\# \\+ \\- \\= \\| \\{ \\} \\. \\!');
+      expect(escaped).toBe('\\\\ \\_ \\* \\[ \\] \\( \\) \\~ \\` \\> \\# \\+ \\- \\= \\| \\{ \\} \\. \\!');
     });
 
     it('should escape parentheses specifically', () => {
       const text = 'Hello (world)';
       expect(escapeMarkdownV2(text)).toBe('Hello \\(world\\)');
+    });
+
+    it('should escape backslashes correctly when followed by reserved characters', () => {
+      // This is the common failing case where an existing backslash + paren becomes \\(
+      // (one escaped backslash followed by an unescaped paren)
+      const text = 'A \\(backslashed paren)';
+      // Fixed version should be A \\\(backslashed paren\)
+      // This means: one literal backslash (\), then one literal paren (\()
+      expect(escapeMarkdownV2(text)).toBe('A \\\\\\(backslashed paren\\)');
     });
   });
 

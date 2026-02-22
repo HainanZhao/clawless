@@ -25,7 +25,7 @@ export function registerTelegramHandlers({
   onAbortRequested,
   onChatBound,
 }: RegisterTelegramHandlersParams) {
-  messagingClient.onTextMessage(async (messageContext: any) => {
+  const handleIncomingTelegramMessage = async (messageContext: any) => {
     const principals = [messageContext.username, messageContext.userId]
       .filter((value): value is string | number => value !== undefined && value !== null)
       .map(String)
@@ -66,12 +66,15 @@ export function registerTelegramHandlers({
       }
       await messageContext.sendText(`❌ Error: ${errorMessage}`);
     });
-  });
+  };
 
-  messagingClient.onError((error: Error, messageContext: any) => {
+  const handleTelegramClientError = (error: Error, messageContext: any) => {
     console.error(`${platformLabel} client error:`, error);
     if (messageContext) {
       messageContext.sendText('⚠️ An error occurred while processing your request.').catch(() => {});
     }
-  });
+  };
+
+  messagingClient.onTextMessage(handleIncomingTelegramMessage);
+  messagingClient.onError(handleTelegramClientError);
 }

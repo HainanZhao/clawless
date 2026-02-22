@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { logInfo } from '../utils/error.js';
+import { logInfo, logError } from '../utils/error.js';
 import { getConfig, type Config } from '../utils/config.js';
 import { ensureClawlessHomeDirectory, resolveChatId, loadPersistedCallbackChatId } from '../utils/callbackState.js';
 import {
@@ -49,6 +49,7 @@ export class ClawlessApp {
         maxCharsPerEntry: this.config.CONVERSATION_SEMANTIC_MAX_CHARS_PER_ENTRY,
       },
       logInfo,
+      logError,
     );
 
     this.agentManager = new AgentManager({

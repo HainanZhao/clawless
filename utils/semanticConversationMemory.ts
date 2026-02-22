@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import { getErrorMessage } from './error.js';
 import type { ConversationEntry } from './conversationHistory.js';
 
-type LogInfoFn = (message: string, details?: unknown) => void;
+type LogFn = (message: string, details?: unknown) => void;
 
 export interface SemanticConversationMemoryConfig {
   enabled: boolean;
@@ -82,7 +82,8 @@ function toConversationEntry(row: SemanticRow): ConversationEntry {
 
 export class SemanticConversationMemory {
   private readonly config: SemanticConversationMemoryConfig;
-  private readonly logInfo: LogInfoFn;
+  private readonly logInfo: LogFn;
+  private readonly logError: LogFn;
   private runtimeDisabled = false;
   private runtimeDisableLogged = false;
   private sqlModulePromise: Promise<any> | null = null;
@@ -90,9 +91,10 @@ export class SemanticConversationMemory {
   private writeQueue: Promise<void> = Promise.resolve();
   private ftsAvailable = true;
 
-  constructor(config: SemanticConversationMemoryConfig, logInfo: LogInfoFn) {
+  constructor(config: SemanticConversationMemoryConfig, logInfo: LogFn, logError: LogFn) {
     this.config = config;
     this.logInfo = logInfo;
+    this.logError = logError;
   }
 
   get isEnabled() {
@@ -107,7 +109,7 @@ export class SemanticConversationMemory {
     }
 
     this.runtimeDisableLogged = true;
-    this.logInfo('Semantic memory disabled at runtime', {
+    this.logError('Semantic memory disabled at runtime', {
       reason,
       error: error ? getErrorMessage(error) : undefined,
       action:
@@ -276,9 +278,10 @@ export class SemanticConversationMemory {
               recallText,
             ]);
           } else if (rowId === null) {
-            this.logInfo('Skipped semantic recall index insert due to invalid rowid', {
+            this.logError('Skipped semantic recall index insert due to invalid rowid', {
               entryId,
               rawSeq,
+              chatId: entry.chatId,
             });
           }
 
@@ -309,7 +312,9 @@ export class SemanticConversationMemory {
         }
       });
     } catch (error: any) {
-      this.logInfo('Failed to index semantic conversation entry', {
+      this.logError('Failed to index semantic conversation entry', {
+        chatId: entry.chatId,
+        entryId: toEntryId(entry),
         error: getErrorMessage(error),
       });
     }
@@ -386,7 +391,9 @@ export class SemanticConversationMemory {
 
       return rows.map(toConversationEntry).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
     } catch (error: any) {
-      this.logInfo('Failed semantic conversation recall', {
+      this.logError('Failed semantic conversation recall', {
+        chatId,
+        query: userPrompt,
         error: getErrorMessage(error),
       });
       return [];

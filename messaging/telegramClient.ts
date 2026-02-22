@@ -7,9 +7,10 @@ const TELEGRAM_PARSE_MODE = 'MarkdownV2' as const;
 /**
  * Escapes characters that are reserved in Telegram's MarkdownV2.
  * Used as a fallback when Markdown conversion fails or for plain text components.
+ * See: https://core.telegram.org/bots/api#markdownv2-style
  */
 export function escapeMarkdownV2(text: string): string {
-  return String(text || '').replace(/[_*[\]()~`>#+-=|{}.!]/g, '\\$&');
+  return String(text || '').replace(/[\\_*\[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 export function toTelegramMarkdown(text: string): string {
@@ -57,8 +58,17 @@ class TelegramMessageContext {
   async sendText(text: string) {
     const chunks = splitIntoSmartChunks(text, this.maxMessageLength);
     for (const chunk of chunks) {
-      const formattedChunk = toTelegramMarkdown(chunk);
-      await this.ctx.reply(formattedChunk, { parse_mode: TELEGRAM_PARSE_MODE });
+      try {
+        const formattedChunk = toTelegramMarkdown(chunk);
+        await this.ctx.reply(formattedChunk, { parse_mode: TELEGRAM_PARSE_MODE });
+      } catch (error: any) {
+        const errorMessage = String(error?.message || '').toLowerCase();
+        if (errorMessage.includes('reserved') || errorMessage.includes('parse entities')) {
+          await this.ctx.reply(escapeMarkdownV2(chunk), { parse_mode: TELEGRAM_PARSE_MODE });
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
@@ -70,9 +80,18 @@ class TelegramMessageContext {
 
   async updateLiveMessage(messageId: number, text: string) {
     const formattedText = toTelegramMarkdown(text || '…');
-    await this.ctx.telegram.editMessageText(this.ctx.chat.id, messageId, undefined, formattedText, {
-      parse_mode: TELEGRAM_PARSE_MODE,
-    });
+    try {
+      await this.ctx.telegram.editMessageText(this.ctx.chat.id, messageId, undefined, formattedText, {
+        parse_mode: TELEGRAM_PARSE_MODE,
+      });
+    } catch (error: any) {
+       const errorMessage = String(error?.message || '').toLowerCase();
+       if (errorMessage.includes('reserved') || errorMessage.includes('parse entities')) {
+          await this.ctx.telegram.editMessageText(this.ctx.chat.id, messageId, undefined, escapeMarkdownV2(text || '…'), {
+            parse_mode: TELEGRAM_PARSE_MODE,
+          });
+       }
+    }
   }
 
   async finalizeLiveMessage(messageId: number, text: string) {
@@ -93,13 +112,32 @@ class TelegramMessageContext {
       );
     } catch (error: any) {
       const errorMessage = String(error?.message || '').toLowerCase();
-      if (!errorMessage.includes('message is not modified')) {
+      if (errorMessage.includes('message is not modified')) {
+        // ignore
+      } else if (errorMessage.includes('reserved') || errorMessage.includes('parse entities')) {
+        await this.ctx.telegram.editMessageText(
+          this.ctx.chat.id,
+          messageId,
+          undefined,
+          escapeMarkdownV2(rawChunks[0] || defaultResponse),
+          { parse_mode: TELEGRAM_PARSE_MODE },
+        );
+      } else {
         throw error;
       }
     }
 
     for (let index = 1; index < formattedChunks.length; index += 1) {
-      await this.ctx.reply(formattedChunks[index], { parse_mode: TELEGRAM_PARSE_MODE });
+      try {
+        await this.ctx.reply(formattedChunks[index], { parse_mode: TELEGRAM_PARSE_MODE });
+      } catch (error: any) {
+        const errorMessage = String(error?.message || '').toLowerCase();
+        if (errorMessage.includes('reserved') || errorMessage.includes('parse entities')) {
+          await this.ctx.reply(escapeMarkdownV2(rawChunks[index]), { parse_mode: TELEGRAM_PARSE_MODE });
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
@@ -148,8 +186,17 @@ export class TelegramMessagingClient {
   async sendTextToChat(chatId: string | number, text: string) {
     const chunks = splitIntoSmartChunks(text, this.maxMessageLength);
     for (const chunk of chunks) {
-      const formattedChunk = toTelegramMarkdown(chunk);
-      await this.bot.telegram.sendMessage(chatId, formattedChunk, { parse_mode: TELEGRAM_PARSE_MODE });
+      try {
+        const formattedChunk = toTelegramMarkdown(chunk);
+        await this.bot.telegram.sendMessage(chatId, formattedChunk, { parse_mode: TELEGRAM_PARSE_MODE });
+      } catch (error: any) {
+        const errorMessage = String(error?.message || '').toLowerCase();
+        if (errorMessage.includes('reserved') || errorMessage.includes('parse entities')) {
+          await this.bot.telegram.sendMessage(chatId, escapeMarkdownV2(chunk), { parse_mode: TELEGRAM_PARSE_MODE });
+        } else {
+          throw error;
+        }
+      }
     }
   }
 
