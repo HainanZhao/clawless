@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [0.4.7] - 2026-02-22
+
+
+### Fixed
+
+- Scheduler async jobs now correctly propagate and display the user-provided job reference ID, preventing mismatched identifiers in chat notifications.
+- Corrected message truncation/splitting logic which previously could cut off code blocks or break Markdown; improved test coverage to prevent regressions.
+- Various smaller bug fixes and code cleanups across messaging, semantic memory, and scheduler modules.
+
+### Maintenance
+
+- Updated and cleaned up test suite (removed obsolete tests, fixed failing cases, improved coverage).
+
+---
+
 ## [0.4.6] - 2026-02-21
 
 ### Added
